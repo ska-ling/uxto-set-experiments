@@ -13,6 +13,40 @@
 #include <kth/domain/chain/input_point.hpp>
 #include <kth/consensus.hpp>
 
+#ifdef JEMALLOC
+#include <jemalloc/jemalloc.h>
+
+inline
+void print_memory_usage(std::string_view message) {
+    size_t epoch = 1;
+    size_t sz = sizeof(size_t);
+    size_t allocated = 0;
+    size_t active = 0;
+    size_t resident = 0;
+    size_t retained = 0;
+
+    mallctl("thread.tcache.flush", NULL, NULL, NULL, 0);
+    mallctl("epoch", NULL, NULL, &epoch, sizeof(epoch));
+    mallctl("stats.allocated", &allocated, &sz, nullptr, 0);
+    mallctl("stats.active", &active, &sz, nullptr, 0);
+    mallctl("stats.resident", &resident, &sz, nullptr, 0);
+    mallctl("stats.retained", &retained, &sz, nullptr, 0);
+
+    double allocated_mb = allocated / 1'000'000.0;
+    double active_mb = active / 1'000'000.0;
+    double resident_mb = resident / 1'000'000.0;
+    double retained_mb = retained / 1'000'000.0;
+
+    fmt::print("{:<60} - allocated: {:>10} - active: {:>10} - resident: {:>10} - retained: {:>10}\n", message, allocated_mb, active_mb, resident_mb, retained_mb);
+}
+#else
+inline
+void print_memory_usage(std::string_view message) {
+    fmt::print("{} - memory usage not available\n", message);
+}
+#endif
+
+
 
 using bytes_t = std::vector<uint8_t>;
 
@@ -34,6 +68,15 @@ bytes_t hex2vec(char const* src, size_t n) {
     bytes_t bytes(n / 2);
     hex2bin(src, bytes.data());
     return bytes;
+}
+
+std::string bytes2hex(bytes_t const& bytes) {
+    std::string hex(bytes.size() * 2, '\0');
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        hex[i * 2] = "0123456789ABCDEF"[bytes[i] >> 4];
+        hex[i * 2 + 1] = "0123456789ABCDEF"[bytes[i] & 0xF];
+    }
+    return hex;
 }
 
 std::vector<bytes_t> get_blocks_raw_from_n(std::filesystem::path blocks_filename, size_t from_block, size_t n) {
@@ -70,10 +113,17 @@ using TransactionReadResult = std::tuple<
 
 TransactionReadResult get_n_transactions(std::filesystem::path const& path, size_t block_from, size_t tx_from, size_t n) {
     constexpr size_t file_step = 10'000;    //TODO: hardcoded values
-    constexpr size_t file_max = 780'000;
+    // constexpr size_t file_max = 780'000;
+
+    // constexpr size_t file_max = 99'999; // Ok
+    constexpr size_t file_max = 169'999;
+
+    print_memory_usage("get_n_transactions() start");
 
     std::vector<kth::domain::chain::transaction> transactions;
     transactions.reserve(n);
+
+    print_memory_usage("get_n_transactions() after reserve");
 
     auto const remaining = [&](){ return n - transactions.size(); };
 
@@ -95,15 +145,32 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
         size_t const blocks_to_read = std::min(remaining(), file_step);
         auto blocks_raw = get_blocks_raw_from_n(blocks_file, current_block_index, blocks_to_read);
+        print_memory_usage("get_n_transactions() after calling get_blocks_raw_from_n()");
 
         for (size_t i = 0; i < blocks_raw.size(); ++i) {
             auto& block_raw = blocks_raw[i];
+            std::string message = fmt::format("get_n_transactions() before parsing block - block {}", global_block_index);
+            print_memory_usage(message);
+            if (global_block_index >= 168500 && global_block_index <= 168510) {
+                fmt::print("block {} - size {}\n", global_block_index, block_raw.size());
+            }
+            if (global_block_index == 168502) {
+                fmt::print("block {} - raw hex: {}\n", global_block_index, bytes2hex(block_raw));
+            }
             kth::domain::chain::block blk;
             kth::domain::entity_from_data(blk, block_raw);
+            message = fmt::format("get_n_transactions() after parsing block - block {}", global_block_index);
+            print_memory_usage(message);
             auto const valid = blk.is_valid();
 
             if ( ! valid) {
+                // Should not happen
                 fmt::print("****** INVALID BLOCK ******\n");
+                std::terminate();
+            }
+
+            if (global_block_index >= 168500 && global_block_index <= 168510) {
+                fmt::print("block {} - tx count: {}\n", global_block_index, blk.transactions().size());
             }
 
             auto& txs = blk.transactions();
@@ -120,7 +187,9 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
             size_t old_transaction_size = transactions.size();
             size_t old_txs_size = txs.size();
 
+            print_memory_usage("get_n_transactions() before moving transactions");
             std::move(txs.begin() + start_index, txs.begin() + end_index, std::back_inserter(transactions));
+            print_memory_usage("get_n_transactions() after moving transactions");
 
             if (transactions.size() >= n) {
                 size_t const next_tx_index = end_index == txs.size() ? 0 : end_index;
@@ -130,7 +199,10 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
                 fmt::print("(1) Returning transactions_collected: {} - block {} - tx {}\n", transactions.size(), next_block_index, next_tx_index);
                 return {std::move(transactions), next_block_index, next_tx_index};
             }
+
+            print_memory_usage("get_n_transactions() before resetting block");
             blk.reset();
+            print_memory_usage("get_n_transactions() after resetting block");
             ++global_block_index;
         }
 
@@ -145,15 +217,17 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
 template <typename ProcessTxs, typename PostProcessing>
 void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProcessing post_processing, size_t& total_inputs, size_t& total_outputs, size_t& partial_inputs, size_t& partial_outputs) {
-    constexpr size_t file_max = 780'000;            //TODO: hardcoded values
-    constexpr size_t file_step = 10000;
+    // constexpr size_t file_max = 780'000;
+    // constexpr size_t file_max = 99'000;          //TODO: hardcoded values
+    // constexpr size_t file_step = 10000;
     constexpr size_t max_blocks = 1000;
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(500'000, 1'000'000); //TODO: hardcoded values
+    // std::uniform_int_distribution<int> dis(500'000, 1'000'000); //TODO: hardcoded values
+    std::uniform_int_distribution<int> dis(50'000, 100'000); //TODO: hardcoded values
 
-    size_t block_from = 0;
+    size_t block_from = 168500; //0;
     size_t tx_from = 0;
     size_t input_count = 0;
     size_t output_count = 0;
@@ -219,7 +293,5 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     fmt::print("Total inputs:       {}\n", input_count);
     fmt::print("Total outputs:      {}\n", output_count);
 }
-
-
 
 #endif // UTXO_SET_COMMON_HPP_
