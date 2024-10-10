@@ -9,7 +9,7 @@ class uxto_set_experimentsRecipe(ConanFile):
     exports_sources = "CMakeLists.txt", "src/*"
 
     def requirements(self):
-        self.requires("node/0.45.0", transitive_headers=True, transitive_libs=True)
+        self.requires("node/0.46.0", transitive_headers=True, transitive_libs=True)
         self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
         # self.requires("fmt/11.0.2", transitive_headers=True, transitive_libs=True)
         self.requires("abseil/20240722.0", transitive_headers=True, transitive_libs=True)
