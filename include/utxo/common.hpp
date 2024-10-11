@@ -195,6 +195,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
             total_raw_block_bytes += block_raw.size();
             size_t const before_parse_block = get_allocated_memory();
             kth::domain::chain::block blk;
+
             kth::domain::entity_from_data(blk, block_raw);
             auto const valid = blk.is_valid();
 
@@ -206,13 +207,16 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
             size_t const after_parse_block = get_allocated_memory();
             size_t const block_memory = after_parse_block - before_parse_block;
-            total_parsed_block_bytes += block_memory;
 
-            report_block_memory_usage(blk, global_block_index, before_parse_block, after_parse_block, block_raw.size());
+            // report_block_memory_usage(blk, global_block_index, before_parse_block, after_parse_block, block_raw.size());
 
             auto& txs = blk.transactions();
             size_t const start_index = global_block_index == block_from ? tx_from : 0;
             size_t const end_index = std::min(txs.size(), start_index + remaining());
+            if (start_index == 0) {
+                // This is the first time block (global_block_index) is processed
+                total_parsed_block_bytes += block_memory;
+            }
 
             if (start_index >= txs.size()) {
                 // Skip this block if the start index is out of range
