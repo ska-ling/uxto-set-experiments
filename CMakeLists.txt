@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(uxto-set-experiments CXX)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 
 find_package(node REQUIRED)
@@ -14,8 +14,11 @@ find_package(svector REQUIRED)
 
 add_definitions(-DKTH_CURRENCY_BCH)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 
 include_directories(${PROJECT_SOURCE_DIR}/include)

@@ -97,9 +97,14 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         auto blocks_raw = get_blocks_raw_from_n(blocks_file, current_block_index, blocks_to_read);
 
         for (size_t i = 0; i < blocks_raw.size(); ++i) {
-            auto& block_raw = blocks_raw[i];
-            kth::domain::chain::block blk;
-            kth::domain::entity_from_data(blk, block_raw);
+            auto const& block_raw = blocks_raw[i];
+            kth::byte_reader reader(block_raw);
+            auto blk_exp = kth::domain::chain::block::from_data(reader);
+            if (!blk_exp) {
+                fmt::print("Error reading block\n");
+                throw std::runtime_error("Error reading block");
+            }
+            auto& blk = *blk_exp;
             auto const valid = blk.is_valid();
 
             if ( ! valid) {
