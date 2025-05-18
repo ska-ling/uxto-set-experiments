@@ -14,14 +14,20 @@ csv_files = glob.glob(f"{input_dir}utxo-history-*.csv")
 csv_files.sort(key=lambda x: int(re.search(r'utxo-history-(\d+)\.csv', x).group(1)))
 
 # Variables para estadísticas
-segment_size = 10_000  # Tamaño de cada segmento
+segment_size = 50_000  # Tamaño de cada segmento
 segment_stats = {}
 total_lifespans = []
 total_lifespans_zero = 0
 
+file_index = 0
+
 # Procesar archivos uno por uno
 for file in csv_files:
     print(f"Processing file: {file}")
+    if file_index >= 3:
+        print("Skipping file due to index limit.")
+        break
+    file_index += 1
 
     for chunk in pd.read_csv(file, names=["txid_index", "creation_block", "spent_block"], 
                              usecols=[1, 2], skiprows=1, chunksize=1_000_000):
