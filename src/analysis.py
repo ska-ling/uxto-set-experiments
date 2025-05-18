@@ -18,7 +18,6 @@ lifespans = []
 # Procesar archivos uno por uno
 for file in csv_files:
     print(f"Processing file: {file}")
-    break
     for chunk in pd.read_csv(file, names=["txid_index", "creation_block", "spent_block"], 
                              usecols=[1, 2], skiprows=1, chunksize=1_000_000):
         # Filtrar las filas con "Unspent"
