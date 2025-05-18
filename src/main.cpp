@@ -120,7 +120,7 @@ int main() {
 
         uint32_t block_height = current_file_start;
         while (std::getline(file, line)) {
-            process_block(line, current_file_start);
+            process_block(line, block_height);
             ++block_height;
         }
     }
