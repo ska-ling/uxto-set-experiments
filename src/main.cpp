@@ -118,8 +118,10 @@ int main() {
         std::ifstream file(blocks_file);
         std::string line;
 
+        uint32_t block_height = current_file_start;
         while (std::getline(file, line)) {
             process_block(line, current_file_start);
+            ++block_height;
         }
     }
 
