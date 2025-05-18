@@ -14,6 +14,7 @@ csv_files.sort(key=lambda x: int(re.search(r'utxo-history-(\d+)\.csv', x).group(
 total_utxos = 0
 total_spent = 0
 lifespans = []
+lifespans_zero = []
 creation_blocks = []
 
 file_index = 0
@@ -40,53 +41,66 @@ for file in csv_files:
 
         # Filtrar filas con lifespan válido
         valid_lifespans = chunk[chunk["lifespan"].notna()]
+
+        # Separar lifespan == 0
+        zero_lifespans = valid_lifespans[valid_lifespans["lifespan"] == 0]
+        non_zero_lifespans = valid_lifespans[valid_lifespans["lifespan"] > 0]
+
+        # Contabilizar estadísticas
         total_utxos += len(valid_lifespans)
-        total_spent += len(valid_lifespans)
-        lifespans.extend(valid_lifespans["lifespan"].values)
-        creation_blocks.extend(valid_lifespans["creation_block"].values)
+        total_spent += len(non_zero_lifespans)
+        lifespans.extend(non_zero_lifespans["lifespan"].values)
+        lifespans_zero.extend(zero_lifespans["lifespan"].values)
+        creation_blocks.extend(non_zero_lifespans["creation_block"].values)
     
     file_index += 1
 
 # Convertir los tiempos de vida y bloques de creación a pandas Series para análisis
 lifespans = pd.Series(lifespans)
+lifespans_zero = pd.Series(lifespans_zero)
 creation_blocks = pd.Series(creation_blocks)
 
+# Estadísticas para TXOs válidos (Lifespan > 0)
 average_lifespan = lifespans.mean()
 median_lifespan = lifespans.median()
 min_lifespan = lifespans.min()
 max_lifespan = lifespans.max()
 
-print("\n=== UTXO Statistics (Spent Only) ===")
+print("\n=== UTXO Statistics (Spent Only, Lifespan > 0) ===")
 print(f"Total TXOs (Spent): {total_spent}")
 print(f"Average Lifespan: {average_lifespan:.2f} blocks")
 print(f"Median Lifespan: {median_lifespan} blocks")
 print(f"Min Lifespan: {min_lifespan} blocks")
 print(f"Max Lifespan: {max_lifespan} blocks")
 
+# Estadísticas para TXOs con Lifespan == 0
+print("\n=== Special Case: TXOs Spent in the Same Block (Lifespan = 0) ===")
+print(f"Total TXOs (Lifespan = 0): {len(lifespans_zero)}")
+
 # Distribución de vida útil por rangos
 lifespan_bins = [0, 10, 100, 1000, 10000, 100000, 1000000]
 lifespan_distribution = pd.cut(lifespans, bins=lifespan_bins).value_counts().sort_index()
-print("\nDistribution of Lifespan (Spent Only):")
+print("\nDistribution of Lifespan (Spent Only, >0):")
 print(lifespan_distribution)
 
 # Distribución por año de creación
 blocks_per_year = 52560  # Approx. 1 block every 10 minutes
 creation_years = (creation_blocks // blocks_per_year) + 2009
 creation_distribution = creation_years.value_counts().sort_index()
-print("\nDistribution of Spent TXOs by Creation Year:")
+print("\nDistribution of Spent TXOs by Creation Year (Lifespan > 0):")
 print(creation_distribution)
 
 # Visualización de las distribuciones
 plt.figure(figsize=(12, 6))
 plt.hist(lifespans, bins=100, log=True, color="skyblue", edgecolor="black")
-plt.title("TXO Lifespan Distribution (Log Scale) - Spent Only")
+plt.title("TXO Lifespan Distribution (Log Scale) - Spent Only (Lifespan > 0)")
 plt.xlabel("Lifespan (blocks)")
 plt.ylabel("Frequency")
 plt.show()
 
 plt.figure(figsize=(12, 6))
 creation_distribution.plot(kind="bar", color="skyblue")
-plt.title("TXOs Spent per Year (Creation Year)")
+plt.title("TXOs Spent per Year (Creation Year) - Lifespan > 0")
 plt.xlabel("Year")
 plt.ylabel("Number of TXOs")
 plt.show()
