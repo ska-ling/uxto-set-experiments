@@ -14,6 +14,7 @@ csv_files.sort(key=lambda x: int(re.search(r'utxo-history-(\d+)\.csv', x).group(
 total_utxos = 0
 total_spent = 0
 lifespans = []
+creation_blocks = []
 
 file_index = 0
 
@@ -37,18 +38,19 @@ for file in csv_files:
         chunk["creation_block"] = pd.to_numeric(chunk["creation_block"])
         chunk["lifespan"] = chunk["spent_block"] - chunk["creation_block"]
 
-        # Estadísticas acumuladas
-        total_utxos += len(chunk)
-        total_spent += chunk["lifespan"].notna().sum()
-        lifespans.extend(chunk["lifespan"].dropna().values)
+        # Filtrar filas con lifespan válido
+        valid_lifespans = chunk[chunk["lifespan"].notna()]
+        total_utxos += len(valid_lifespans)
+        total_spent += len(valid_lifespans)
+        lifespans.extend(valid_lifespans["lifespan"].values)
+        creation_blocks.extend(valid_lifespans["creation_block"].values)
     
-    # Si encontramos "Unspent", detener lectura de archivos
-    if chunk.empty or (chunk["spent_block"] == "Unspent").any():
-        break
     file_index += 1
 
-# Convertir los tiempos de vida a pandas Series para análisis
+# Convertir los tiempos de vida y bloques de creación a pandas Series para análisis
 lifespans = pd.Series(lifespans)
+creation_blocks = pd.Series(creation_blocks)
+
 average_lifespan = lifespans.mean()
 median_lifespan = lifespans.median()
 min_lifespan = lifespans.min()
@@ -69,7 +71,7 @@ print(lifespan_distribution)
 
 # Distribución por año de creación
 blocks_per_year = 52560  # Approx. 1 block every 10 minutes
-creation_years = (lifespans.index // blocks_per_year) + 2009
+creation_years = (creation_blocks // blocks_per_year) + 2009
 creation_distribution = creation_years.value_counts().sort_index()
 print("\nDistribution of Spent TXOs by Creation Year:")
 print(creation_distribution)
