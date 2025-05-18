@@ -15,9 +15,14 @@ total_utxos = 0
 total_spent = 0
 lifespans = []
 
+file_index = 0
+
 # Procesar archivos uno por uno
 for file in csv_files:
     print(f"Processing file: {file}")
+    if file_index >= 10:
+        print("Processed 10 files. Stopping analysis.")
+        break
     for chunk in pd.read_csv(file, names=["txid_index", "creation_block", "spent_block"], 
                              usecols=[1, 2], skiprows=1, chunksize=1_000_000):
         # Filtrar las filas con "Unspent"
@@ -40,6 +45,7 @@ for file in csv_files:
     # Si encontramos "Unspent", detener lectura de archivos
     if chunk.empty or (chunk["spent_block"] == "Unspent").any():
         break
+    file_index += 1
 
 # Convertir los tiempos de vida a pandas Series para análisis
 lifespans = pd.Series(lifespans)
