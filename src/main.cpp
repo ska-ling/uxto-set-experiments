@@ -42,6 +42,7 @@ size_t output_file_index = 0;
 std::ofstream output_file;
 
 void open_new_output_file() {
+    fmt::print("Opening new output file...\n");
     if (output_file.is_open()) {
         output_file.close();
     }
@@ -55,6 +56,7 @@ void write_output_buffer() {
         open_new_output_file();
     }
 
+    fmt::print("Writing {} entries to output file...\n", output_buffer.size());
     for (const auto& line : output_buffer) {
         output_file << line;
         if (output_file.tellp() >= MAX_OUTPUT_FILE_SIZE) {
@@ -63,6 +65,9 @@ void write_output_buffer() {
     }
 
     output_buffer.clear();
+    fmt::print("Flushing output file...\n");
+    output_file.flush();
+    fmt::print("Output file flushed.\n");
 }
 
 // Function to process a block
@@ -91,6 +96,7 @@ void process_block(std::string const& block_hex, size_t block_height) {
                 utxo_set.erase(it);
 
                 if (output_buffer.size() >= MAX_OUTPUT_BUFFER) {
+                    fmt::print("Buffer size reached, writing to file...\n");
                     write_output_buffer();
                 }
             }
