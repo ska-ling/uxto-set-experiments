@@ -2,7 +2,7 @@ rm -rf build
 rm -rf conan.lock
 
 
-conan lock create conanfile.py --version="0.1" --update
+conan lock create conanfile.py --version="1.0" --update
 conan lock create conanfile.py --version "1.0" --lockfile=conan.lock --lockfile-out=build/conan.lock
 conan install conanfile.py --lockfile=build/conan.lock -of build --build=missing
 
