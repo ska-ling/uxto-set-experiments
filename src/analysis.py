@@ -4,45 +4,62 @@ import matplotlib.pyplot as plt
 
 # Directorio de los archivos CSV
 input_dir = "/home/fernando/dev/utxo-experiments/output/"
-csv_files = glob.glob(f"{input_dir}utxo-history-*.csv")
+csv_files = glob.glob(f"{input_dir}utxo-history-0.csv")
 
-# Leer y concatenar todos los archivos en un solo DataFrame
-df = pd.concat([pd.read_csv(f, names=["txid", "index", "creation_block", "spent_block"]) for f in csv_files], ignore_index=True)
+# Variables para estadísticas
+total_utxos = 0
+total_spent = 0
+total_unspent = 0
+lifespans = []
 
-# Limpiar y convertir los datos
-df["spent_block"] = pd.to_numeric(df["spent_block"], errors="coerce")
-df["creation_block"] = pd.to_numeric(df["creation_block"])
-df["lifespan"] = df["spent_block"] - df["creation_block"]
-df.dropna(subset=["lifespan"], inplace=True)  # Eliminar UTXOs no gastados
+# Procesar archivos uno por uno
+for file in csv_files:
+    print(f"Processing file: {file}")
+    for chunk in pd.read_csv(file, names=["txid_index", "creation_block", "spent_block"], 
+                             usecols=[1, 2], skiprows=1, chunksize=1_000_000):
+        # Convertir a numérico y calcular lifespan
+        chunk["spent_block"] = pd.to_numeric(chunk["spent_block"], errors="coerce")
+        chunk["creation_block"] = pd.to_numeric(chunk["creation_block"])
+        chunk["lifespan"] = chunk["spent_block"] - chunk["creation_block"]
 
-# Calcular estadísticas generales
-average_lifespan = df["lifespan"].mean()
-median_lifespan = df["lifespan"].median()
-min_lifespan = df["lifespan"].min()
-max_lifespan = df["lifespan"].max()
+        # Estadísticas acumuladas
+        total_utxos += len(chunk)
+        total_spent += chunk["lifespan"].notna().sum()
+        total_unspent += chunk["lifespan"].isna().sum()
+        lifespans.extend(chunk["lifespan"].dropna().values)
 
-print(f"Average lifespan: {average_lifespan:.2f} blocks")
-print(f"Median lifespan: {median_lifespan} blocks")
-print(f"Min lifespan: {min_lifespan} blocks")
-print(f"Max lifespan: {max_lifespan} blocks")
+# Convertir los tiempos de vida a pandas Series para análisis
+lifespans = pd.Series(lifespans)
+average_lifespan = lifespans.mean()
+median_lifespan = lifespans.median()
+min_lifespan = lifespans.min()
+max_lifespan = lifespans.max()
+
+print("\n=== UTXO Statistics ===")
+print(f"Total UTXOs: {total_utxos}")
+print(f"Total Spent: {total_spent}")
+print(f"Total Unspent: {total_unspent}")
+print(f"Average Lifespan: {average_lifespan:.2f} blocks")
+print(f"Median Lifespan: {median_lifespan} blocks")
+print(f"Min Lifespan: {min_lifespan} blocks")
+print(f"Max Lifespan: {max_lifespan} blocks")
 
 # Distribución de vida útil por rangos
 lifespan_bins = [0, 10, 100, 1000, 10000, 100000, 1000000]
-df["lifespan_range"] = pd.cut(df["lifespan"], bins=lifespan_bins)
-lifespan_distribution = df["lifespan_range"].value_counts().sort_index()
+lifespan_distribution = pd.cut(lifespans, bins=lifespan_bins).value_counts().sort_index()
 print("\nDistribution of Lifespan:")
 print(lifespan_distribution)
 
 # Distribución por año de creación
 blocks_per_year = 52560  # Approx. 1 block every 10 minutes
-df["creation_year"] = df["creation_block"] // blocks_per_year + 2009
-creation_distribution = df["creation_year"].value_counts().sort_index()
+creation_years = (lifespans.index // blocks_per_year) + 2009
+creation_distribution = creation_years.value_counts().sort_index()
 print("\nDistribution of UTXOs by Creation Year:")
 print(creation_distribution)
 
 # Visualización de las distribuciones
 plt.figure(figsize=(12, 6))
-plt.hist(df["lifespan"], bins=100, log=True, color="skyblue", edgecolor="black")
+plt.hist(lifespans, bins=100, log=True, color="skyblue", edgecolor="black")
 plt.title("UTXO Lifespan Distribution (Log Scale)")
 plt.xlabel("Lifespan (blocks)")
 plt.ylabel("Frequency")
