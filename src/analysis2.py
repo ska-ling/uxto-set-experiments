@@ -136,6 +136,7 @@ def process_files_for_totals():
     # Procesar archivos de UTXOs gastados
     print(f"  Processing {len(spent_files)} spent UTXO files for totals...")
     for file in spent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -165,6 +166,7 @@ def process_files_for_totals():
     # Procesar archivos de UTXOs no gastados
     print(f"  Processing {len(unspent_files)} unspent UTXO files for totals...")
     for file in unspent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -227,6 +229,7 @@ def process_files_for_segment(segment):
     
     # Procesar archivos de UTXOs gastados para este segmento
     for file in spent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -251,6 +254,7 @@ def process_files_for_segment(segment):
     
     # Procesar archivos de UTXOs no gastados para este segmento
     for file in unspent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -532,6 +536,7 @@ def process_total_spent_stats():
     # Procesar archivos de UTXOs gastados
     print(f"  Processing {len(spent_files)} spent UTXO files for totals...")
     for file in spent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -578,6 +583,7 @@ def process_total_unspent_stats():
     # Procesar archivos de UTXOs no gastados
     print(f"  Processing {len(unspent_files)} unspent UTXO files for totals...")
     for file in unspent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -622,6 +628,7 @@ def process_segment_spent_stats(segment):
     
     # Procesar archivos de UTXOs gastados para este segmento
     for file in spent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
@@ -663,6 +670,7 @@ def process_segment_unspent_stats(segment):
     
     # Procesar archivos de UTXOs no gastados para este segmento
     for file in unspent_files:
+        print(f"    Processing file: {file}")
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
