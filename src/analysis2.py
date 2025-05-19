@@ -9,7 +9,7 @@ from multiprocessing import Pool, cpu_count
 import gc
 
 
-chunk_size = 100_000  # Reducir el tamaño del chunk
+chunk_size = 1_000_000  # Reducir el tamaño del chunk
 
 # Directorios
 input_dir = "/home/fernando/dev/utxo-experiments/output/"
