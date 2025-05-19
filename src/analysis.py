@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import os
 from functools import partial
 from multiprocessing import Pool, cpu_count
+import gc
+
+
+chunk_size = 100_000  # Reducir el tamaño del chunk
 
 # Directorios
 input_dir = "/home/fernando/dev/utxo-experiments/output/"
@@ -133,7 +137,7 @@ def process_unspent_chunk(chunk, segment_size):
     
     return local_stats, local_count, local_amounts, local_locking_sizes
 
-def process_spent_file(file, chunk_size=1_000_000, segment_size=50_000):
+def process_spent_file(file, chunk_size, segment_size=50_000):
     """Procesar un archivo CSV de UTXOs gastados"""
     print(f"Processing spent UTXO file: {file}")
     
@@ -156,7 +160,9 @@ def process_spent_file(file, chunk_size=1_000_000, segment_size=50_000):
     # Procesar cada chunk
     for chunk in chunks:
         local_stats, local_lifespans, local_lifespans_zero, local_amounts, local_locking_sizes = process_spent_chunk(chunk, segment_size)
-        
+        del chunk
+        gc.collect()
+
         # Actualizar totales
         total_lifespans.extend(local_lifespans)
         total_lifespans_zero += local_lifespans_zero
@@ -185,7 +191,7 @@ def process_spent_file(file, chunk_size=1_000_000, segment_size=50_000):
     
     return segment_stats, total_lifespans, total_lifespans_zero, total_amounts, total_locking_sizes
 
-def process_unspent_file(file, chunk_size=1_000_000, segment_size=50_000):
+def process_unspent_file(file, chunk_size, segment_size=50_000):
     """Procesar un archivo CSV de UTXOs no gastados"""
     print(f"Processing unspent UTXO file: {file}")
     
@@ -207,6 +213,8 @@ def process_unspent_file(file, chunk_size=1_000_000, segment_size=50_000):
     # Procesar cada chunk
     for chunk in chunks:
         local_stats, local_count, local_amounts, local_locking_sizes = process_unspent_chunk(chunk, segment_size)
+        del chunk
+        gc.collect()
         
         # Actualizar totales
         total_count += local_count
@@ -486,7 +494,7 @@ def main():
     # Procesar archivos de UTXOs gastados (hasta 248)
     print(f"Processing {len(spent_files)} spent UTXO files...")
     for file in spent_files:
-        seg_stats, lifespans, lifespans_zero, amounts, locking_sizes = process_spent_file(file, segment_size=segment_size)
+        seg_stats, lifespans, lifespans_zero, amounts, locking_sizes = process_spent_file(file, chunk_size, segment_size=segment_size)
         
         # Acumular resultados
         spent_lifespans.extend(lifespans)
@@ -519,7 +527,7 @@ def main():
     # print(f"File list: {unspent_files}")
 
     for file in unspent_files:
-        seg_stats, count, amounts, locking_sizes = process_unspent_file(file, segment_size=segment_size)
+        seg_stats, count, amounts, locking_sizes = process_unspent_file(file, chunk_size, segment_size=segment_size)
         
         # Acumular resultados
         unspent_count += count
