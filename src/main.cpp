@@ -1,8 +1,6 @@
 #include <fmt/core.h>
 
 #include <utxo/common.hpp>
-
-
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
@@ -18,6 +16,8 @@ using UTXOKey = std::array<uint8_t, 36>;
 
 struct UTXOEntry {
     size_t creation_block;
+    uint64_t value;        // Monto del output (satoshis)
+    size_t script_size;    // Tamaño del script (bytes)
 };
 
 // UTXO Map
@@ -48,7 +48,7 @@ void open_new_output_file() {
     }
     std::string filename = fmt::format("{}/utxo-history-{}.csv", output_directory, output_file_index++);
     output_file.open(filename);
-    output_file << "txid,index,creation_block,spent_block\n";
+    output_file << "creation_block,spent_block,value,script_size\n";
 }
 
 void write_output_buffer() {
@@ -76,10 +76,13 @@ void process_block(std::string const& block_hex, size_t block_height) {
     kth::byte_reader reader(block_bytes);
     auto blk_exp = kth::domain::chain::block::from_data(reader);
     auto const& blk = blk_exp.value();
+
     for (const auto& tx : blk.transactions()) {
         for (size_t i = 0; i < tx.outputs().size(); ++i) {
             auto key = create_utxo_key(tx.hash(), i);
-            utxo_set[key] = {block_height};
+            uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
+            size_t script_size = tx.outputs()[i].script().size(); // Tamaño del script
+            utxo_set[key] = {block_height, value, script_size};
         }
 
         for (const auto& input : tx.inputs()) {
@@ -87,10 +90,11 @@ void process_block(std::string const& block_hex, size_t block_height) {
             auto it = utxo_set.find(key);
             if (it != utxo_set.end()) {
                 output_buffer.push_back(
-                    fmt::format("{},{},{}\n", 
-                        kth::encode_base16(key), 
+                    fmt::format("{},{},{},{}\n", 
                         it->second.creation_block, 
-                        block_height
+                        block_height, 
+                        it->second.value, 
+                        it->second.script_size
                     )
                 );
                 utxo_set.erase(it);
@@ -130,7 +134,11 @@ int main() {
 
     // Write remaining unspent UTXOs
     for (const auto& [key, utxo] : utxo_set) {
-        output_buffer.push_back(fmt::format("{},{},Unspent\n", kth::encode_base16(key), utxo.creation_block));
+        output_buffer.push_back(fmt::format("{},{},Unspent,{},{}\n", 
+                                            utxo.creation_block, 
+                                            "Unspent", 
+                                            utxo.value, 
+                                            utxo.script_size));
     }
 
     write_output_buffer();

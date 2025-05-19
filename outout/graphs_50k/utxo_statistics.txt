@@ -1,0 +1,306 @@
+
+=== UTXO Statistics (Total, Lifespan > 0) ===
+Total TXOs (Spent): 756928671
+Total TXOs (Lifespan = 0): 110089208
+Average Lifespan: 8401.06 blocks
+Median Lifespan: 60.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 710057 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              244981207
+(10, 100]            168186870
+(100, 1000]          142214185
+(1000, 10000]        101227896
+(10000, 100000]       84814107
+(100000, 1000000]     15504406
+Name: count, dtype: int64
+
+
+=== Segment 0 - 49999 ===
+Total TXOs (Spent): 25038
+Total TXOs (Lifespan = 0): 69
+Average Lifespan: 61940.69 blocks
+Median Lifespan: 36940.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 584857 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]                 78
+(10, 100]               63
+(100, 1000]           4446
+(1000, 10000]         4765
+(10000, 100000]      10084
+(100000, 1000000]     5602
+Name: count, dtype: int64
+
+
+=== Segment 50000 - 99999 ===
+Total TXOs (Spent): 131351
+Total TXOs (Lifespan = 0): 66728
+Average Lifespan: 16675.73 blocks
+Median Lifespan: 296.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 710057 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              27771
+(10, 100]            14920
+(100, 1000]          37983
+(1000, 10000]        27953
+(10000, 100000]      16215
+(100000, 1000000]     6509
+Name: count, dtype: int64
+
+
+=== Segment 100000 - 149999 ===
+Total TXOs (Spent): 2771765
+Total TXOs (Lifespan = 0): 365224
+Average Lifespan: 17108.66 blocks
+Median Lifespan: 152.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 655245 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              824821
+(10, 100]            448304
+(100, 1000]          530871
+(1000, 10000]        476900
+(10000, 100000]      350234
+(100000, 1000000]    140635
+Name: count, dtype: int64
+
+
+=== Segment 150000 - 199999 ===
+Total TXOs (Spent): 9468396
+Total TXOs (Lifespan = 0): 2657598
+Average Lifespan: 7766.08 blocks
+Median Lifespan: 30.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 627442 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              3676540
+(10, 100]            2039738
+(100, 1000]          1632022
+(1000, 10000]        1166968
+(10000, 100000]       780094
+(100000, 1000000]     173034
+Name: count, dtype: int64
+
+
+=== Segment 200000 - 249999 ===
+Total TXOs (Spent): 26835590
+Total TXOs (Lifespan = 0): 6227048
+Average Lifespan: 9344.69 blocks
+Median Lifespan: 23.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 578973 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              11000836
+(10, 100]             5952392
+(100, 1000]           4159563
+(1000, 10000]         2744106
+(10000, 100000]       2163565
+(100000, 1000000]      815128
+Name: count, dtype: int64
+
+
+=== Segment 250000 - 299999 ===
+Total TXOs (Spent): 39463377
+Total TXOs (Lifespan = 0): 5358783
+Average Lifespan: 9125.68 blocks
+Median Lifespan: 38.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 528164 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              14064655
+(10, 100]             8843224
+(100, 1000]           6866457
+(1000, 10000]         5562014
+(10000, 100000]       2877426
+(100000, 1000000]     1249601
+Name: count, dtype: int64
+
+
+=== Segment 300000 - 349999 ===
+Total TXOs (Spent): 65065483
+Total TXOs (Lifespan = 0): 11459192
+Average Lifespan: 9194.17 blocks
+Median Lifespan: 49.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 478140 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              22461499
+(10, 100]            14735260
+(100, 1000]          12039315
+(1000, 10000]         8594537
+(10000, 100000]       5333365
+(100000, 1000000]     1901507
+Name: count, dtype: int64
+
+
+=== Segment 350000 - 399999 ===
+Total TXOs (Spent): 127023143
+Total TXOs (Lifespan = 0): 18675045
+Average Lifespan: 9439.06 blocks
+Median Lifespan: 95.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 429189 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              35330306
+(10, 100]            28790547
+(100, 1000]          25297170
+(1000, 10000]        19657442
+(10000, 100000]      14968110
+(100000, 1000000]     2979568
+Name: count, dtype: int64
+
+
+=== Segment 400000 - 449999 ===
+Total TXOs (Spent): 173118204
+Total TXOs (Lifespan = 0): 17231105
+Average Lifespan: 8735.14 blocks
+Median Lifespan: 62.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 379375 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              52859934
+(10, 100]            42409936
+(100, 1000]          36561441
+(1000, 10000]        23586823
+(10000, 100000]      13440643
+(100000, 1000000]     4259427
+Name: count, dtype: int64
+
+
+=== Segment 450000 - 499999 ===
+Total TXOs (Spent): 116626923
+Total TXOs (Lifespan = 0): 10286169
+Average Lifespan: 7233.82 blocks
+Median Lifespan: 62.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 329547 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              35830139
+(10, 100]            27907851
+(100, 1000]          25867810
+(1000, 10000]        17105909
+(10000, 100000]       7205758
+(100000, 1000000]     2709456
+Name: count, dtype: int64
+
+
+=== Segment 500000 - 549999 ===
+Total TXOs (Spent): 25715348
+Total TXOs (Lifespan = 0): 9126765
+Average Lifespan: 8338.92 blocks
+Median Lifespan: 14.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 279018 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              12099349
+(10, 100]             5525130
+(100, 1000]           3303598
+(1000, 10000]         2180059
+(10000, 100000]       1752799
+(100000, 1000000]      854413
+Name: count, dtype: int64
+
+
+=== Segment 550000 - 599999 ===
+Total TXOs (Spent): 17666573
+Total TXOs (Lifespan = 0): 4811192
+Average Lifespan: 6453.13 blocks
+Median Lifespan: 20.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 228199 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              7108349
+(10, 100]            4559209
+(100, 1000]          2506506
+(1000, 10000]        1549905
+(10000, 100000]      1693698
+(100000, 1000000]     248906
+Name: count, dtype: int64
+
+
+=== Segment 600000 - 649999 ===
+Total TXOs (Spent): 18664424
+Total TXOs (Lifespan = 0): 1381556
+Average Lifespan: 4026.91 blocks
+Median Lifespan: 18.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 179101 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              7627648
+(10, 100]            5122045
+(100, 1000]          2601062
+(1000, 10000]        1491253
+(10000, 100000]      1738628
+(100000, 1000000]      83788
+Name: count, dtype: int64
+
+
+=== Segment 650000 - 699999 ===
+Total TXOs (Spent): 70950732
+Total TXOs (Lifespan = 0): 16307624
+Average Lifespan: 10337.09 blocks
+Median Lifespan: 386.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 129540 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              19987940
+(10, 100]             9088303
+(100, 1000]          11145284
+(1000, 10000]         9294018
+(10000, 100000]      21358355
+(100000, 1000000]       76832
+Name: count, dtype: int64
+
+
+=== Segment 700000 - 749999 ===
+Total TXOs (Spent): 53194590
+Total TXOs (Lifespan = 0): 5504729
+Average Lifespan: 6149.90 blocks
+Median Lifespan: 73.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 79899 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              18013086
+(10, 100]             9927349
+(100, 1000]           7539059
+(1000, 10000]         6714705
+(10000, 100000]      11000391
+(100000, 1000000]           0
+Name: count, dtype: int64
+
+
+=== Segment 750000 - 799999 ===
+Total TXOs (Spent): 10207734
+Total TXOs (Lifespan = 0): 630381
+Average Lifespan: 604.54 blocks
+Median Lifespan: 20.0 blocks
+Min Lifespan: 1 blocks
+Max Lifespan: 29740 blocks
+
+Distribution of Lifespan (Spent Only, >0):
+(0, 10]              4068256
+(10, 100]            2822599
+(100, 1000]          2121598
+(1000, 10000]        1070539
+(10000, 100000]       124742
+(100000, 1000000]          0
+Name: count, dtype: int64
+
