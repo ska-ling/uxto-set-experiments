@@ -32,7 +32,7 @@ file_index = 0
 # Procesar archivos uno por uno
 for file in csv_files:
     print(f"Processing file: {file}")
-    if file_index >= 3:
+    if file_index >= 1:
         print("Skipping file due to index limit.")
         break
     file_index += 1    
@@ -80,10 +80,15 @@ for file in csv_files:
                 total_locking_sizes.append(row['locking_script_size'])
                 total_unlocking_sizes.append(row['unlocking_script_size'])
 
+# Convert lists to pandas Series for statistical operations
+total_amounts_series = pd.Series(total_amounts)
+total_lifespans_series = pd.Series(total_lifespans)
+total_locking_sizes_series = pd.Series(total_locking_sizes)
+total_unlocking_sizes_series = pd.Series(total_unlocking_sizes)
+
 # Generar estadísticas segmentadas y totales
 with open(f"{output_dir}utxo_statistics.txt", "w") as f:
     f.write("\n=== UTXO Statistics (Total, Lifespan > 0) ===\n")
-    total_lifespans_series = pd.Series(total_lifespans)
     f.write(f"Total TXOs (Spent): {len(total_lifespans)}\n")
     f.write(f"Total TXOs (Lifespan = 0): {total_lifespans_zero}\n")
 
@@ -93,20 +98,18 @@ with open(f"{output_dir}utxo_statistics.txt", "w") as f:
     f.write(f"Min Lifespan: {total_lifespans_series.min()} blocks\n")
     f.write(f"Max Lifespan: {total_lifespans_series.max()} blocks\n\n")
     # Amount    
-    f.write(f"Average Amount: {total_amounts.mean()} Satoshis\n")
-    f.write(f"Median Amount: {pd.Series(total_amounts).median()} Satoshis\n")
-    f.write(f"Min Amount: {pd.Series(total_amounts).min()} Satoshis\n")
-    f.write(f"Max Amount: {pd.Series(total_amounts).max()} Satoshis\n\n")
+    f.write(f"Average Amount: {total_amounts_series.mean()} Satoshis\n")
+    f.write(f"Median Amount: {total_amounts_series.median()} Satoshis\n")
+    f.write(f"Min Amount: {total_amounts_series.min()} Satoshis\n")
+    f.write(f"Max Amount: {total_amounts_series.max()} Satoshis\n\n")
 
     # Locking Script Size
-    total_locking_sizes_series = pd.Series(total_locking_sizes)
     f.write(f"Average Locking Script Size: {total_locking_sizes_series.mean()} bytes\n")
     f.write(f"Median Locking Script Size: {total_locking_sizes_series.median()} bytes\n")
     f.write(f"Min Locking Script Size: {total_locking_sizes_series.min()} bytes\n")
     f.write(f"Max Locking Script Size: {total_locking_sizes_series.max()} bytes\n\n")
     
     # Unlocking Script Size
-    total_unlocking_sizes_series = pd.Series(total_unlocking_sizes)
     f.write(f"Average Unlocking Script Size: {total_unlocking_sizes_series.mean()} bytes\n")
     f.write(f"Median Unlocking Script Size: {total_unlocking_sizes_series.median()} bytes\n")
     f.write(f"Min Unlocking Script Size: {total_unlocking_sizes_series.min()} bytes\n")
