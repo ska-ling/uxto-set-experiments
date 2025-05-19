@@ -483,41 +483,41 @@ def main():
     unspent_amounts = []
     unspent_locking_sizes = []
     
-    # # Procesar archivos de UTXOs gastados (hasta 248)
-    # print(f"Processing {len(spent_files)} spent UTXO files...")
-    # for file in spent_files:
-    #     seg_stats, lifespans, lifespans_zero, amounts, locking_sizes = process_spent_file(file, segment_size=segment_size)
+    # Procesar archivos de UTXOs gastados (hasta 248)
+    print(f"Processing {len(spent_files)} spent UTXO files...")
+    for file in spent_files:
+        seg_stats, lifespans, lifespans_zero, amounts, locking_sizes = process_spent_file(file, segment_size=segment_size)
         
-    #     # Acumular resultados
-    #     spent_lifespans.extend(lifespans)
-    #     spent_lifespans_zero += lifespans_zero
-    #     spent_amounts.extend(amounts)
-    #     spent_locking_sizes.extend(locking_sizes)
+        # Acumular resultados
+        spent_lifespans.extend(lifespans)
+        spent_lifespans_zero += lifespans_zero
+        spent_amounts.extend(amounts)
+        spent_locking_sizes.extend(locking_sizes)
         
-    #     # Actualizar estadísticas por segmento
-    #     for segment, stats in seg_stats.items():
-    #         if segment not in spent_segment_stats:
-    #             spent_segment_stats[segment] = {
-    #                 'spent': 0, 
-    #                 'lifespan_0': 0, 
-    #                 'lifespans': [],
-    #                 'amounts': [], 
-    #                 'locking_sizes': [],
-    #                 # 'unlocking_sizes': []
-    #             }
+        # Actualizar estadísticas por segmento
+        for segment, stats in seg_stats.items():
+            if segment not in spent_segment_stats:
+                spent_segment_stats[segment] = {
+                    'spent': 0, 
+                    'lifespan_0': 0, 
+                    'lifespans': [],
+                    'amounts': [], 
+                    'locking_sizes': [],
+                    # 'unlocking_sizes': []
+                }
             
-    #         spent_segment_stats[segment]['spent'] += stats['spent']
-    #         spent_segment_stats[segment]['lifespan_0'] += stats['lifespan_0']
-    #         spent_segment_stats[segment]['lifespans'].extend(stats['lifespans'])
-    #         spent_segment_stats[segment]['amounts'].extend(stats['amounts'])
-    #         spent_segment_stats[segment]['locking_sizes'].extend(stats['locking_sizes'])
-    #         # if 'unlocking_sizes' in stats:
-    #         #     spent_segment_stats[segment]['unlocking_sizes'].extend(stats['unlocking_sizes'])
+            spent_segment_stats[segment]['spent'] += stats['spent']
+            spent_segment_stats[segment]['lifespan_0'] += stats['lifespan_0']
+            spent_segment_stats[segment]['lifespans'].extend(stats['lifespans'])
+            spent_segment_stats[segment]['amounts'].extend(stats['amounts'])
+            spent_segment_stats[segment]['locking_sizes'].extend(stats['locking_sizes'])
+            # if 'unlocking_sizes' in stats:
+            #     spent_segment_stats[segment]['unlocking_sizes'].extend(stats['unlocking_sizes'])
     
     # Procesar archivos de UTXOs no gastados (desde 249)
     print(f"Processing {len(unspent_files)} unspent UTXO files...")
-    print(f"File list: {unspent_files}")
-    
+    # print(f"File list: {unspent_files}")
+
     for file in unspent_files:
         seg_stats, count, amounts, locking_sizes = process_unspent_file(file, segment_size=segment_size)
         
