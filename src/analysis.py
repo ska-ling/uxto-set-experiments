@@ -160,8 +160,8 @@ def process_spent_file(file, chunk_size, segment_size=50_000):
     # Procesar cada chunk
     for chunk in chunks:
         local_stats, local_lifespans, local_lifespans_zero, local_amounts, local_locking_sizes = process_spent_chunk(chunk, segment_size)
-        del chunk
-        gc.collect()
+        # del chunk
+        # gc.collect()
 
         # Actualizar totales
         total_lifespans.extend(local_lifespans)
@@ -213,8 +213,8 @@ def process_unspent_file(file, chunk_size, segment_size=50_000):
     # Procesar cada chunk
     for chunk in chunks:
         local_stats, local_count, local_amounts, local_locking_sizes = process_unspent_chunk(chunk, segment_size)
-        del chunk
-        gc.collect()
+        # del chunk
+        # gc.collect()
         
         # Actualizar totales
         total_count += local_count
