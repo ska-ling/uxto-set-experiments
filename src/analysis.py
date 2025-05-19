@@ -27,7 +27,7 @@ total_amounts = []
 total_locking_sizes = []
 total_unlocking_sizes = []
 
-# file_index = 0
+file_index = 0
 
 # Procesar archivos uno por uno
 for file in csv_files:
