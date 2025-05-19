@@ -340,7 +340,7 @@ def write_statistics(output_dir,
 
 # Procesamiento principal
 def main():
-    file_limit = 1  # Límite de archivos a procesar
+    # file_limit = 1  # Límite de archivos a procesar
     
     # Inicializar variables acumulativas
     all_segment_stats = {}
@@ -352,9 +352,9 @@ def main():
     
     # Procesar archivos
     for i, file in enumerate(csv_files):
-        if i >= file_limit:
-            print("Skipping file due to index limit.")
-            break
+        # if i >= file_limit:
+        #     print("Skipping file due to index limit.")
+        #     break
             
         # segment_stats, lifespans, lifespans_zero, amounts, locking_sizes, unlocking_sizes = process_file(file, segment_size=segment_size)
         segment_stats, lifespans, lifespans_zero, amounts, locking_sizes = process_file(file, segment_size=segment_size)
