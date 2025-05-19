@@ -81,7 +81,7 @@ void process_block(std::string const& block_hex, size_t block_height) {
         for (size_t i = 0; i < tx.outputs().size(); ++i) {
             auto key = create_utxo_key(tx.hash(), i);
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
-            size_t locking_script_size = tx.outputs()[i].script().serialized_size(); // Tamaño del locking script
+            size_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
             utxo_set[key] = {block_height, value, locking_script_size};
         }
 
@@ -89,7 +89,7 @@ void process_block(std::string const& block_hex, size_t block_height) {
             auto key = create_utxo_key(input.previous_output().hash(), input.previous_output().index());
             auto it = utxo_set.find(key);
             if (it != utxo_set.end()) {
-                size_t unlocking_script_size = input.script().serialized_size(); // Tamaño del unlocking script
+                size_t unlocking_script_size = input.script().serialized_size(false); // Tamaño del unlocking script
                 output_buffer.push_back(
                     fmt::format("{},{},{},{},{}\n", 
                         it->second.creation_block, 
