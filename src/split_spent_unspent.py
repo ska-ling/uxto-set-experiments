@@ -5,22 +5,22 @@ import shutil
 input_dir = "/home/fernando/dev/utxo-experiments/output/"
 filename = f"{input_dir}utxo-history-248.csv"
 
-# # Encontrar el archivo máximo
-# print("Detectando archivo máximo...")
-# max_index = 248
-# while os.path.exists(f"{input_dir}utxo-history-{max_index}.csv"):
-#     max_index += 1
-# max_index -= 1  # El último existente
+# Encontrar el archivo máximo
+print("Detectando archivo máximo...")
+max_index = 248
+while os.path.exists(f"{input_dir}utxo-history-{max_index}.csv"):
+    max_index += 1
+max_index -= 1  # El último existente
 
-# print(f"Archivo máximo detectado: utxo-history-{max_index}.csv")
+print(f"Archivo máximo detectado: utxo-history-{max_index}.csv")
 
-# # Desplazar archivos hacia arriba, desde el último hasta 249
-# print("Desplazando archivos hacia arriba...")
-# for i in range(max_index, 248, -1):
-#     old_filename = f"{input_dir}utxo-history-{i}.csv"
-#     new_filename = f"{input_dir}utxo-history-{i + 1}.csv"
-#     shutil.move(old_filename, new_filename)
-#     print(f"Renombrado {old_filename} a {new_filename}")
+# Desplazar archivos hacia arriba, desde el último hasta 249
+print("Desplazando archivos hacia arriba...")
+for i in range(max_index, 248, -1):
+    old_filename = f"{input_dir}utxo-history-{i}.csv"
+    new_filename = f"{input_dir}utxo-history-{i + 1}.csv"
+    shutil.move(old_filename, new_filename)
+    print(f"Renombrado {old_filename} a {new_filename}")
 
 # Leer y separar Spent y Unspent manualmente
 print("Leyendo archivo 248 y separando Spent/Unspent...")
