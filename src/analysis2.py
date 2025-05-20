@@ -764,7 +764,7 @@ def main():
     spent_total_stats = process_total_spent_stats()
     
     # Generar gráficos y escribir estadísticas para UTXOs gastados totales
-    print("  Generating plots and writing statistics for spent UTXOs...")
+    # print("  Generating plots and writing statistics for spent UTXOs...")
     # generate_plots({
     #     'lifespans': spent_total_stats['total_lifespans'],
     #     'amounts': spent_total_stats['total_amounts'],
@@ -777,9 +777,9 @@ def main():
     del spent_total_stats
     gc.collect()
     
-    # # Paso 2: Procesar datos para estadísticas totales de UTXOs no gastados
-    # print("Step 2: Processing total statistics for unspent UTXOs...")
-    # unspent_total_stats = process_total_unspent_stats()
+    # Paso 2: Procesar datos para estadísticas totales de UTXOs no gastados
+    print("Step 2: Processing total statistics for unspent UTXOs...")
+    unspent_total_stats = process_total_unspent_stats()
     
     # # Generar gráficos y escribir estadísticas para UTXOs no gastados totales
     # print("  Generating plots and writing statistics for unspent UTXOs...")
@@ -788,47 +788,47 @@ def main():
     #     'locking_sizes': unspent_total_stats['total_locking_sizes']
     # }, output_dir, "unspent_overall", "lightgreen", "Unspent TXOs")
     
-    # write_unspent_total_stats(output_dir, unspent_total_stats)
+    write_unspent_total_stats(output_dir, unspent_total_stats)
     
-    # # Liberar memoria
-    # del unspent_total_stats
-    # gc.collect()
+    # Liberar memoria
+    del unspent_total_stats
+    gc.collect()
     
     # # Escribir estadísticas comparativas totales
     # print("Step 3: Writing total comparative statistics...")
     # write_total_comparative_stats(output_dir)
     
-    # # Paso 4: Procesar cada segmento para UTXOs gastados
-    # # Ahora usamos los segmentos precalculados
-    # print(f"Step 4: Processing {len(all_segments)} segments for spent UTXOs...")
-    # for segment in all_segments:
-    #     print(f"  Processing segment {segment} for spent UTXOs...")
-    #     segment_stats = process_segment_spent_stats(segment)
+    # Paso 4: Procesar cada segmento para UTXOs gastados
+    # Ahora usamos los segmentos precalculados
+    print(f"Step 4: Processing {len(all_segments)} segments for spent UTXOs...")
+    for segment in all_segments:
+        print(f"  Processing segment {segment} for spent UTXOs...")
+        segment_stats = process_segment_spent_stats(segment)
         
-    #     if segment_stats['lifespans'] or segment_stats['amounts']:
-    #         # Generar gráficos y escribir estadísticas para este segmento
-    #         generate_segment_plots(segment, segment_stats, output_dir, "spent")
-    #         write_segment_spent_stats(output_dir, segment, segment_stats)
+        if segment_stats['lifespans'] or segment_stats['amounts']:
+            # Generar gráficos y escribir estadísticas para este segmento
+            generate_segment_plots(segment, segment_stats, output_dir, "spent")
+            write_segment_spent_stats(output_dir, segment, segment_stats)
         
-    #     # Liberar memoria
-    #     del segment_stats
-    #     gc.collect()
+        # Liberar memoria
+        del segment_stats
+        gc.collect()
     
-    # # Paso 5: Procesar cada segmento para UTXOs no gastados
-    # # También usamos los segmentos precalculados
-    # print(f"Step 5: Processing {len(all_segments)} segments for unspent UTXOs...")
-    # for segment in all_segments:
-    #     print(f"  Processing segment {segment} for unspent UTXOs...")
-    #     segment_stats = process_segment_unspent_stats(segment)
+    # Paso 5: Procesar cada segmento para UTXOs no gastados
+    # También usamos los segmentos precalculados
+    print(f"Step 5: Processing {len(all_segments)} segments for unspent UTXOs...")
+    for segment in all_segments:
+        print(f"  Processing segment {segment} for unspent UTXOs...")
+        segment_stats = process_segment_unspent_stats(segment)
         
-    #     if segment_stats['amounts']:
-    #         # Generar gráficos y escribir estadísticas para este segmento
-    #         generate_segment_plots(segment, segment_stats, output_dir, "unspent")
-    #         write_segment_unspent_stats(output_dir, segment, segment_stats)
+        if segment_stats['amounts']:
+            # Generar gráficos y escribir estadísticas para este segmento
+            generate_segment_plots(segment, segment_stats, output_dir, "unspent")
+            write_segment_unspent_stats(output_dir, segment, segment_stats)
         
-    #     # Liberar memoria
-    #     del segment_stats
-    #     gc.collect()
+        # Liberar memoria
+        del segment_stats
+        gc.collect()
     
     # # Paso 6: Escribir estadísticas comparativas por segmento
     # print("Step 6: Writing comparative statistics for each segment...")

@@ -1,0 +1,47 @@
+======== SPENT UTXO ANALYSIS SUMMARY ========
+
+Total Spent UTXOs:   867017878
+- With lifespan > 0: 756928670
+- With lifespan = 0: 110089208
+
+Lifespan Statistics (blocks):
+- Average:   8401.06
+- Median:      60.0
+- Min:          1
+- Max:     710057
+
+Lifespan Distribution:
+[0, 10):         235734544
+[10, 100):       176732856
+[100, 1000):     142852974
+[1000, 10000):   101285886
+[10000, 100000):  84817789
+[100000, inf):    15504621
+
+Amount Statistics (Satoshis):
+- Average:      1218752619.17
+- Median:          1465705.0
+- Min:                   0
+- Max:      65756710476500
+
+Amount Distribution:
+[0, 10000):               130535861
+[10000, 1000000):         202566458
+[1000000, 100000000):     330079992
+[100000000, 1000000000):   65258826
+[1000000000, 10000000000): 23530774
+[10000000000, inf):         4956759
+
+Locking Script Size Statistics (bytes):
+- Average: 24.81
+- Median:  25.0
+- Min:      0
+- Max:   1325
+
+Locking Script Size Distribution:
+[0, 20):       219194
+[20, 50):   756117341
+[50, 100):     434808
+[100, 200):    157237
+[200, 500):        87
+[500, inf):         3
