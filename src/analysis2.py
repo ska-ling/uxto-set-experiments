@@ -122,7 +122,6 @@ def process_unspent_chunk_for_segment(chunk, target_segment=None, collect_totals
     
     return results
 
-
 def generate_plots(data, output_dir, plot_prefix, color="skyblue", title_prefix=""):
     """Genera gráficos para un conjunto de datos"""
     # Plot para montos
@@ -186,183 +185,6 @@ def calc_stats(values):
         'max': np.max(values_np),
         'count': len(values_np)
     }
-
-def write_statistics(output_dir, spent_stats, unspent_stats):
-    """Escribir todas las estadísticas al archivo de salida"""
-    with open(f"{output_dir}utxo_statistics.txt", "w") as f:
-        # RESUMEN GENERAL
-        f.write("======== UTXO SET ANALYSIS SUMMARY ========\n\n")
-        
-        # Estadísticas generales de UTXOs gastados
-        spent_total = len(spent_stats['total_lifespans'])
-        spent_zero = spent_stats['total_lifespans_zero']
-        spent_all = spent_total + spent_zero
-        
-        f.write("=== SPENT UTXOs ===\n")
-        f.write(f"Total Spent UTXOs: {spent_all}\n")
-        f.write(f"- With lifespan > 0: {spent_total}\n")
-        f.write(f"- With lifespan = 0: {spent_zero}\n")
-        
-        # Estadísticas de lifespan para UTXOs gastados
-        if spent_total > 0:
-            lifespan_stats = calc_stats(spent_stats['total_lifespans'])
-            f.write(f"\nLifespan Statistics (blocks):\n")
-            f.write(f"- Average: {lifespan_stats['mean']:.2f}\n")
-            f.write(f"- Median: {lifespan_stats['median']}\n")
-            f.write(f"- Min: {lifespan_stats['min']}\n")
-            f.write(f"- Max: {lifespan_stats['max']}\n")
-            
-            # Distribución de lifespan
-            lifespans_series = pd.Series(spent_stats['total_lifespans'])
-            lifespan_distribution = pd.cut(lifespans_series, bins=lifespan_bins).value_counts().sort_index()
-            f.write(f"\nLifespan Distribution:\n")
-            f.write(str(lifespan_distribution) + "\n")
-        
-        # Estadísticas de montos para UTXOs gastados
-        if spent_stats['total_amounts']:
-            amount_stats = calc_stats(spent_stats['total_amounts'])
-            f.write(f"\nAmount Statistics (Satoshis):\n")
-            f.write(f"- Average: {amount_stats['mean']:.2f}\n")
-            f.write(f"- Median: {amount_stats['median']}\n")
-            f.write(f"- Min: {amount_stats['min']}\n")
-            f.write(f"- Max: {amount_stats['max']}\n")
-            
-            # Distribución de montos
-            amounts_series = pd.Series(spent_stats['total_amounts'])
-            amount_distribution = pd.cut(amounts_series, bins=amount_bins).value_counts().sort_index()
-            f.write(f"\nAmount Distribution:\n")
-            f.write(str(amount_distribution) + "\n")
-        
-        # Estadísticas de locking script para UTXOs gastados
-        if spent_stats['total_locking_sizes']:
-            locking_stats = calc_stats(spent_stats['total_locking_sizes'])
-            f.write(f"\nLocking Script Size Statistics (bytes):\n")
-            f.write(f"- Average: {locking_stats['mean']:.2f}\n")
-            f.write(f"- Median: {locking_stats['median']}\n")
-            f.write(f"- Min: {locking_stats['min']}\n")
-            f.write(f"- Max: {locking_stats['max']}\n")
-            
-            # Distribución de tamaños de locking script
-            locking_series = pd.Series(spent_stats['total_locking_sizes'])
-            locking_distribution = pd.cut(locking_series, bins=script_bins).value_counts().sort_index()
-            f.write(f"\nLocking Script Size Distribution:\n")
-            f.write(str(locking_distribution) + "\n")
-        
-        # Estadísticas generales de UTXOs no gastados
-        f.write("\n\n=== UNSPENT UTXOs ===\n")
-        f.write(f"Total Unspent UTXOs: {unspent_stats['total_count']}\n")
-        
-        # Estadísticas de montos para UTXOs no gastados
-        if unspent_stats['total_amounts']:
-            amount_stats = calc_stats(unspent_stats['total_amounts'])
-            f.write(f"\nAmount Statistics (Satoshis):\n")
-            f.write(f"- Average: {amount_stats['mean']:.2f}\n")
-            f.write(f"- Median: {amount_stats['median']}\n")
-            f.write(f"- Min: {amount_stats['min']}\n")
-            f.write(f"- Max: {amount_stats['max']}\n")
-            
-            # Distribución de montos
-            amounts_series = pd.Series(unspent_stats['total_amounts'])
-            amount_distribution = pd.cut(amounts_series, bins=amount_bins).value_counts().sort_index()
-            f.write(f"\nAmount Distribution:\n")
-            f.write(str(amount_distribution) + "\n")
-        
-        # Estadísticas de locking script para UTXOs no gastados
-        if unspent_stats['total_locking_sizes']:
-            locking_stats = calc_stats(unspent_stats['total_locking_sizes'])
-            f.write(f"\nLocking Script Size Statistics (bytes):\n")
-            f.write(f"- Average: {locking_stats['mean']:.2f}\n")
-            f.write(f"- Median: {locking_stats['median']}\n")
-            f.write(f"- Min: {locking_stats['min']}\n")
-            f.write(f"- Max: {locking_stats['max']}\n")
-            
-            # Distribución de tamaños de locking script
-            locking_series = pd.Series(unspent_stats['total_locking_sizes'])
-            locking_distribution = pd.cut(locking_series, bins=script_bins).value_counts().sort_index()
-            f.write(f"\nLocking Script Size Distribution:\n")
-            f.write(str(locking_distribution) + "\n")
-        
-        # ANÁLISIS COMPARATIVO
-        f.write("\n\n======== COMPARATIVE ANALYSIS ========\n")
-        
-        # Montos: Comparativa entre UTXOs gastados vs. no gastados
-        if spent_stats['total_amounts'] and unspent_stats['total_amounts']:
-            spent_amount_avg = np.mean(np.array(spent_stats['total_amounts']))
-            unspent_amount_avg = np.mean(np.array(unspent_stats['total_amounts']))
-            spent_amount_median = np.median(np.array(spent_stats['total_amounts']))
-            unspent_amount_median = np.median(np.array(unspent_stats['total_amounts']))
-            
-            f.write("\nAmount Comparison (Spent vs. Unspent):\n")
-            f.write(f"- Average Amount (Spent): {spent_amount_avg:.2f} Satoshis\n")
-            f.write(f"- Average Amount (Unspent): {unspent_amount_avg:.2f} Satoshis\n")
-            f.write(f"- Ratio (Unspent/Spent): {unspent_amount_avg/spent_amount_avg:.2f}x\n")
-            f.write(f"- Median Amount (Spent): {spent_amount_median} Satoshis\n")
-            f.write(f"- Median Amount (Unspent): {unspent_amount_median} Satoshis\n")
-            f.write(f"- Ratio (Unspent/Spent): {unspent_amount_median/spent_amount_median:.2f}x\n")
-        
-        # Locking Script: Comparativa entre UTXOs gastados vs. no gastados
-        if spent_stats['total_locking_sizes'] and unspent_stats['total_locking_sizes']:
-            spent_locking_avg = np.mean(np.array(spent_stats['total_locking_sizes']))
-            unspent_locking_avg = np.mean(np.array(unspent_stats['total_locking_sizes']))
-            spent_locking_median = np.median(np.array(spent_stats['total_locking_sizes']))
-            unspent_locking_median = np.median(np.array(unspent_stats['total_locking_sizes']))
-            
-            f.write("\nLocking Script Size Comparison (Spent vs. Unspent):\n")
-            f.write(f"- Average Size (Spent): {spent_locking_avg:.2f} bytes\n")
-            f.write(f"- Average Size (Unspent): {unspent_locking_avg:.2f} bytes\n")
-            f.write(f"- Ratio (Unspent/Spent): {unspent_locking_avg/spent_locking_avg:.2f}x\n")
-            f.write(f"- Median Size (Spent): {spent_locking_median} bytes\n")
-            f.write(f"- Median Size (Unspent): {unspent_locking_median} bytes\n")
-            f.write(f"- Ratio (Unspent/Spent): {unspent_locking_median/spent_locking_median:.2f}x\n")
-        
-        # ESTADÍSTICAS POR SEGMENTO
-        f.write("\n\n======== SEGMENTED ANALYSIS ========\n")
-        
-        # Unificar segmentos de ambos conjuntos para análisis
-        all_segments = set(spent_stats['segment_stats'].keys()) | set(unspent_stats['segment_stats'].keys())
-        
-        for segment in sorted(all_segments):
-            f.write(f"\n=== Segment {segment} - {segment + segment_size - 1} ===\n")
-            
-            # Estadísticas del segmento para UTXOs gastados
-            if segment in spent_stats['segment_stats']:
-                seg_data = spent_stats['segment_stats'][segment]
-                spent_count = seg_data['spent'] + seg_data.get('lifespan_0', 0)
-                f.write(f"Spent UTXOs: {spent_count}\n")
-                
-                if seg_data['lifespans']:
-                    lifespan_stats = calc_stats(seg_data['lifespans'])
-                    f.write(f"- Average Lifespan: {lifespan_stats['mean']:.2f} blocks\n")
-                    f.write(f"- Median Lifespan: {lifespan_stats['median']} blocks\n")
-                
-                if seg_data['amounts']:
-                    amount_stats = calc_stats(seg_data['amounts'])
-                    f.write(f"- Average Amount (Spent): {amount_stats['mean']:.2f} Satoshis\n")
-            else:
-                f.write("No Spent UTXOs in this segment.\n")
-            
-            # Estadísticas del segmento para UTXOs no gastados
-            if segment in unspent_stats['segment_stats']:
-                seg_data = unspent_stats['segment_stats'][segment]
-                f.write(f"Unspent UTXOs: {seg_data['count']}\n")
-                
-                if seg_data['amounts']:
-                    amount_stats = calc_stats(seg_data['amounts'])
-                    f.write(f"- Average Amount (Unspent): {amount_stats['mean']:.2f} Satoshis\n")
-            else:
-                f.write("No Unspent UTXOs in this segment.\n")
-            
-            # Análisis comparativo del segmento (si hay datos de ambos tipos)
-            if (segment in spent_stats['segment_stats'] and 
-                segment in unspent_stats['segment_stats'] and
-                spent_stats['segment_stats'][segment]['amounts'] and
-                unspent_stats['segment_stats'][segment]['amounts']):
-                
-                spent_avg = np.mean(np.array(spent_stats['segment_stats'][segment]['amounts']))
-                unspent_avg = np.mean(np.array(unspent_stats['segment_stats'][segment]['amounts']))
-                
-                f.write(f"\nSegment Comparison:\n")
-                f.write(f"- Amount Ratio (Unspent/Spent): {unspent_avg/spent_avg:.2f}x\n")
 
 def process_total_spent_stats():
     """Procesa todos los archivos para obtener estadísticas totales de UTXOs gastados"""
@@ -883,11 +705,11 @@ def main():
     
     # Generar gráficos y escribir estadísticas para UTXOs gastados totales
     print("  Generating plots and writing statistics for spent UTXOs...")
-    generate_plots({
-        'lifespans': spent_total_stats['total_lifespans'],
-        'amounts': spent_total_stats['total_amounts'],
-        'locking_sizes': spent_total_stats['total_locking_sizes']
-    }, output_dir, "spent_overall", "skyblue", "Spent TXOs")
+    # generate_plots({
+    #     'lifespans': spent_total_stats['total_lifespans'],
+    #     'amounts': spent_total_stats['total_amounts'],
+    #     'locking_sizes': spent_total_stats['total_locking_sizes']
+    # }, output_dir, "spent_overall", "skyblue", "Spent TXOs")
     
     write_spent_total_stats(output_dir, spent_total_stats)
     
@@ -958,3 +780,184 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+
+
+
+
+# def write_statistics(output_dir, spent_stats, unspent_stats):
+#     """Escribir todas las estadísticas al archivo de salida"""
+#     with open(f"{output_dir}utxo_statistics.txt", "w") as f:
+#         # RESUMEN GENERAL
+#         f.write("======== UTXO SET ANALYSIS SUMMARY ========\n\n")
+        
+#         # Estadísticas generales de UTXOs gastados
+#         spent_total = len(spent_stats['total_lifespans'])
+#         spent_zero = spent_stats['total_lifespans_zero']
+#         spent_all = spent_total + spent_zero
+        
+#         f.write("=== SPENT UTXOs ===\n")
+#         f.write(f"Total Spent UTXOs: {spent_all}\n")
+#         f.write(f"- With lifespan > 0: {spent_total}\n")
+#         f.write(f"- With lifespan = 0: {spent_zero}\n")
+        
+#         # Estadísticas de lifespan para UTXOs gastados
+#         if spent_total > 0:
+#             lifespan_stats = calc_stats(spent_stats['total_lifespans'])
+#             f.write(f"\nLifespan Statistics (blocks):\n")
+#             f.write(f"- Average: {lifespan_stats['mean']:.2f}\n")
+#             f.write(f"- Median: {lifespan_stats['median']}\n")
+#             f.write(f"- Min: {lifespan_stats['min']}\n")
+#             f.write(f"- Max: {lifespan_stats['max']}\n")
+            
+#             # Distribución de lifespan
+#             lifespans_series = pd.Series(spent_stats['total_lifespans'])
+#             lifespan_distribution = pd.cut(lifespans_series, bins=lifespan_bins).value_counts().sort_index()
+#             f.write(f"\nLifespan Distribution:\n")
+#             f.write(str(lifespan_distribution) + "\n")
+        
+#         # Estadísticas de montos para UTXOs gastados
+#         if spent_stats['total_amounts']:
+#             amount_stats = calc_stats(spent_stats['total_amounts'])
+#             f.write(f"\nAmount Statistics (Satoshis):\n")
+#             f.write(f"- Average: {amount_stats['mean']:.2f}\n")
+#             f.write(f"- Median: {amount_stats['median']}\n")
+#             f.write(f"- Min: {amount_stats['min']}\n")
+#             f.write(f"- Max: {amount_stats['max']}\n")
+            
+#             # Distribución de montos
+#             amounts_series = pd.Series(spent_stats['total_amounts'])
+#             amount_distribution = pd.cut(amounts_series, bins=amount_bins).value_counts().sort_index()
+#             f.write(f"\nAmount Distribution:\n")
+#             f.write(str(amount_distribution) + "\n")
+        
+#         # Estadísticas de locking script para UTXOs gastados
+#         if spent_stats['total_locking_sizes']:
+#             locking_stats = calc_stats(spent_stats['total_locking_sizes'])
+#             f.write(f"\nLocking Script Size Statistics (bytes):\n")
+#             f.write(f"- Average: {locking_stats['mean']:.2f}\n")
+#             f.write(f"- Median: {locking_stats['median']}\n")
+#             f.write(f"- Min: {locking_stats['min']}\n")
+#             f.write(f"- Max: {locking_stats['max']}\n")
+            
+#             # Distribución de tamaños de locking script
+#             locking_series = pd.Series(spent_stats['total_locking_sizes'])
+#             locking_distribution = pd.cut(locking_series, bins=script_bins).value_counts().sort_index()
+#             f.write(f"\nLocking Script Size Distribution:\n")
+#             f.write(str(locking_distribution) + "\n")
+        
+#         # Estadísticas generales de UTXOs no gastados
+#         f.write("\n\n=== UNSPENT UTXOs ===\n")
+#         f.write(f"Total Unspent UTXOs: {unspent_stats['total_count']}\n")
+        
+#         # Estadísticas de montos para UTXOs no gastados
+#         if unspent_stats['total_amounts']:
+#             amount_stats = calc_stats(unspent_stats['total_amounts'])
+#             f.write(f"\nAmount Statistics (Satoshis):\n")
+#             f.write(f"- Average: {amount_stats['mean']:.2f}\n")
+#             f.write(f"- Median: {amount_stats['median']}\n")
+#             f.write(f"- Min: {amount_stats['min']}\n")
+#             f.write(f"- Max: {amount_stats['max']}\n")
+            
+#             # Distribución de montos
+#             amounts_series = pd.Series(unspent_stats['total_amounts'])
+#             amount_distribution = pd.cut(amounts_series, bins=amount_bins).value_counts().sort_index()
+#             f.write(f"\nAmount Distribution:\n")
+#             f.write(str(amount_distribution) + "\n")
+        
+#         # Estadísticas de locking script para UTXOs no gastados
+#         if unspent_stats['total_locking_sizes']:
+#             locking_stats = calc_stats(unspent_stats['total_locking_sizes'])
+#             f.write(f"\nLocking Script Size Statistics (bytes):\n")
+#             f.write(f"- Average: {locking_stats['mean']:.2f}\n")
+#             f.write(f"- Median: {locking_stats['median']}\n")
+#             f.write(f"- Min: {locking_stats['min']}\n")
+#             f.write(f"- Max: {locking_stats['max']}\n")
+            
+#             # Distribución de tamaños de locking script
+#             locking_series = pd.Series(unspent_stats['total_locking_sizes'])
+#             locking_distribution = pd.cut(locking_series, bins=script_bins).value_counts().sort_index()
+#             f.write(f"\nLocking Script Size Distribution:\n")
+#             f.write(str(locking_distribution) + "\n")
+        
+#         # ANÁLISIS COMPARATIVO
+#         f.write("\n\n======== COMPARATIVE ANALYSIS ========\n")
+        
+#         # Montos: Comparativa entre UTXOs gastados vs. no gastados
+#         if spent_stats['total_amounts'] and unspent_stats['total_amounts']:
+#             spent_amount_avg = np.mean(np.array(spent_stats['total_amounts']))
+#             unspent_amount_avg = np.mean(np.array(unspent_stats['total_amounts']))
+#             spent_amount_median = np.median(np.array(spent_stats['total_amounts']))
+#             unspent_amount_median = np.median(np.array(unspent_stats['total_amounts']))
+            
+#             f.write("\nAmount Comparison (Spent vs. Unspent):\n")
+#             f.write(f"- Average Amount (Spent): {spent_amount_avg:.2f} Satoshis\n")
+#             f.write(f"- Average Amount (Unspent): {unspent_amount_avg:.2f} Satoshis\n")
+#             f.write(f"- Ratio (Unspent/Spent): {unspent_amount_avg/spent_amount_avg:.2f}x\n")
+#             f.write(f"- Median Amount (Spent): {spent_amount_median} Satoshis\n")
+#             f.write(f"- Median Amount (Unspent): {unspent_amount_median} Satoshis\n")
+#             f.write(f"- Ratio (Unspent/Spent): {unspent_amount_median/spent_amount_median:.2f}x\n")
+        
+#         # Locking Script: Comparativa entre UTXOs gastados vs. no gastados
+#         if spent_stats['total_locking_sizes'] and unspent_stats['total_locking_sizes']:
+#             spent_locking_avg = np.mean(np.array(spent_stats['total_locking_sizes']))
+#             unspent_locking_avg = np.mean(np.array(unspent_stats['total_locking_sizes']))
+#             spent_locking_median = np.median(np.array(spent_stats['total_locking_sizes']))
+#             unspent_locking_median = np.median(np.array(unspent_stats['total_locking_sizes']))
+            
+#             f.write("\nLocking Script Size Comparison (Spent vs. Unspent):\n")
+#             f.write(f"- Average Size (Spent): {spent_locking_avg:.2f} bytes\n")
+#             f.write(f"- Average Size (Unspent): {unspent_locking_avg:.2f} bytes\n")
+#             f.write(f"- Ratio (Unspent/Spent): {unspent_locking_avg/spent_locking_avg:.2f}x\n")
+#             f.write(f"- Median Size (Spent): {spent_locking_median} bytes\n")
+#             f.write(f"- Median Size (Unspent): {unspent_locking_median} bytes\n")
+#             f.write(f"- Ratio (Unspent/Spent): {unspent_locking_median/spent_locking_median:.2f}x\n")
+        
+#         # ESTADÍSTICAS POR SEGMENTO
+#         f.write("\n\n======== SEGMENTED ANALYSIS ========\n")
+        
+#         # Unificar segmentos de ambos conjuntos para análisis
+#         all_segments = set(spent_stats['segment_stats'].keys()) | set(unspent_stats['segment_stats'].keys())
+        
+#         for segment in sorted(all_segments):
+#             f.write(f"\n=== Segment {segment} - {segment + segment_size - 1} ===\n")
+            
+#             # Estadísticas del segmento para UTXOs gastados
+#             if segment in spent_stats['segment_stats']:
+#                 seg_data = spent_stats['segment_stats'][segment]
+#                 spent_count = seg_data['spent'] + seg_data.get('lifespan_0', 0)
+#                 f.write(f"Spent UTXOs: {spent_count}\n")
+                
+#                 if seg_data['lifespans']:
+#                     lifespan_stats = calc_stats(seg_data['lifespans'])
+#                     f.write(f"- Average Lifespan: {lifespan_stats['mean']:.2f} blocks\n")
+#                     f.write(f"- Median Lifespan: {lifespan_stats['median']} blocks\n")
+                
+#                 if seg_data['amounts']:
+#                     amount_stats = calc_stats(seg_data['amounts'])
+#                     f.write(f"- Average Amount (Spent): {amount_stats['mean']:.2f} Satoshis\n")
+#             else:
+#                 f.write("No Spent UTXOs in this segment.\n")
+            
+#             # Estadísticas del segmento para UTXOs no gastados
+#             if segment in unspent_stats['segment_stats']:
+#                 seg_data = unspent_stats['segment_stats'][segment]
+#                 f.write(f"Unspent UTXOs: {seg_data['count']}\n")
+                
+#                 if seg_data['amounts']:
+#                     amount_stats = calc_stats(seg_data['amounts'])
+#                     f.write(f"- Average Amount (Unspent): {amount_stats['mean']:.2f} Satoshis\n")
+#             else:
+#                 f.write("No Unspent UTXOs in this segment.\n")
+            
+#             # Análisis comparativo del segmento (si hay datos de ambos tipos)
+#             if (segment in spent_stats['segment_stats'] and 
+#                 segment in unspent_stats['segment_stats'] and
+#                 spent_stats['segment_stats'][segment]['amounts'] and
+#                 unspent_stats['segment_stats'][segment]['amounts']):
+                
+#                 spent_avg = np.mean(np.array(spent_stats['segment_stats'][segment]['amounts']))
+#                 unspent_avg = np.mean(np.array(unspent_stats['segment_stats'][segment]['amounts']))
+                
+#                 f.write(f"\nSegment Comparison:\n")
+#                 f.write(f"- Amount Ratio (Unspent/Spent): {unspent_avg/spent_avg:.2f}x\n")
