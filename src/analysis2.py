@@ -391,12 +391,14 @@ def write_spent_total_stats(output_dir, spent_stats):
     """Escribe las estadísticas totales de UTXOs gastados a un archivo"""
     filename = f"{output_dir}spent_utxo_statistics.txt"
     print(f"Writing spent UTXO statistics to file {filename}...")
+    
+    # Convertir listas a numpy arrays para cálculos más eficientes
+    spent_total = len(spent_stats['total_lifespans'])
+    spent_zero = spent_stats['total_lifespans_zero']
+    spent_all = spent_total + spent_zero
+    
     with open(filename, "w") as f:
         # Estadísticas generales de UTXOs gastados
-        spent_total = len(spent_stats['total_lifespans'])
-        spent_zero = spent_stats['total_lifespans_zero']
-        spent_all = spent_total + spent_zero
-        
         f.write("======== SPENT UTXO ANALYSIS SUMMARY ========\n\n")
         f.write(f"Total Spent UTXOs: {spent_all}\n")
         f.write(f"- With lifespan > 0: {spent_total}\n")
@@ -404,48 +406,106 @@ def write_spent_total_stats(output_dir, spent_stats):
         
         # Estadísticas de lifespan para UTXOs gastados
         if spent_total > 0:
-            lifespan_stats = calc_stats(spent_stats['total_lifespans'])
-            f.write(f"\nLifespan Statistics (blocks):\n")
-            f.write(f"- Average: {lifespan_stats['mean']:.2f}\n")
-            f.write(f"- Median: {lifespan_stats['median']}\n")
-            f.write(f"- Min: {lifespan_stats['min']}\n")
-            f.write(f"- Max: {lifespan_stats['max']}\n")
+            # Crear array NumPy para cálculos eficientes
+            lifespans_np = np.array(spent_stats['total_lifespans'], dtype=np.int32)
             
-            # Distribución de lifespan
-            lifespans_series = pd.Series(spent_stats['total_lifespans'])
-            lifespan_distribution = pd.cut(lifespans_series, bins=lifespan_bins).value_counts().sort_index()
+            # Calcular estadísticas básicas
+            lifespan_mean = np.mean(lifespans_np)
+            lifespan_median = np.median(lifespans_np)  # Mediana exacta
+            lifespan_min = np.min(lifespans_np)
+            lifespan_max = np.max(lifespans_np)
+            
+            f.write(f"\nLifespan Statistics (blocks):\n")
+            f.write(f"- Average: {lifespan_mean:.2f}\n")
+            f.write(f"- Median: {lifespan_median}\n")
+            f.write(f"- Min: {lifespan_min}\n")
+            f.write(f"- Max: {lifespan_max}\n")
+            
+            # Calcular distribución de manera eficiente sin pd.cut
             f.write(f"\nLifespan Distribution:\n")
-            f.write(str(lifespan_distribution) + "\n")
+            
+            # Función auxiliar para contar valores en rangos específicos
+            def count_in_bins(data, bins):
+                counts = {}
+                for i in range(len(bins)-1):
+                    start = bins[i]
+                    end = bins[i+1]
+                    
+                    if i == len(bins)-2:  # Último bin
+                        mask = (data >= start)
+                        label = f"[{start}, inf)"
+                    else:
+                        mask = (data >= start) & (data < end)
+                        label = f"[{start}, {end})"
+                    
+                    counts[label] = np.sum(mask)
+                return counts
+            
+            lifespan_dist = count_in_bins(lifespans_np, lifespan_bins)
+            for label, count in sorted(lifespan_dist.items()):
+                f.write(f"{label}: {count}\n")
+            
+            # Liberar memoria
+            del lifespans_np
+            gc.collect()
         
         # Estadísticas de montos para UTXOs gastados
         if spent_stats['total_amounts']:
-            amount_stats = calc_stats(spent_stats['total_amounts'])
-            f.write(f"\nAmount Statistics (Satoshis):\n")
-            f.write(f"- Average: {amount_stats['mean']:.2f}\n")
-            f.write(f"- Median: {amount_stats['median']}\n")
-            f.write(f"- Min: {amount_stats['min']}\n")
-            f.write(f"- Max: {amount_stats['max']}\n")
+            # Crear array NumPy para cálculos eficientes
+            amounts_np = np.array(spent_stats['total_amounts'], dtype=np.int64)
             
-            # Distribución de montos
-            amounts_series = pd.Series(spent_stats['total_amounts'])
-            amount_distribution = pd.cut(amounts_series, bins=amount_bins).value_counts().sort_index()
+            # Calcular estadísticas básicas
+            amount_mean = np.mean(amounts_np)
+            amount_median = np.median(amounts_np)  # Mediana exacta
+            amount_min = np.min(amounts_np)
+            amount_max = np.max(amounts_np)
+            
+            f.write(f"\nAmount Statistics (Satoshis):\n")
+            f.write(f"- Average: {amount_mean:.2f}\n")
+            f.write(f"- Median: {amount_median}\n")
+            f.write(f"- Min: {amount_min}\n")
+            f.write(f"- Max: {amount_max}\n")
+            
+            # Calcular distribución
             f.write(f"\nAmount Distribution:\n")
-            f.write(str(amount_distribution) + "\n")
+            amount_dist = count_in_bins(amounts_np, amount_bins)
+            for label, count in sorted(amount_dist.items()):
+                f.write(f"{label}: {count}\n")
+            
+            # Liberar memoria
+            del amounts_np
+            gc.collect()
         
         # Estadísticas de locking script para UTXOs gastados
         if spent_stats['total_locking_sizes']:
-            locking_stats = calc_stats(spent_stats['total_locking_sizes'])
-            f.write(f"\nLocking Script Size Statistics (bytes):\n")
-            f.write(f"- Average: {locking_stats['mean']:.2f}\n")
-            f.write(f"- Median: {locking_stats['median']}\n")
-            f.write(f"- Min: {locking_stats['min']}\n")
-            f.write(f"- Max: {locking_stats['max']}\n")
+            # Crear array NumPy para cálculos eficientes
+            locking_np = np.array(spent_stats['total_locking_sizes'], dtype=np.int16)
             
-            # Distribución de tamaños de locking script
-            locking_series = pd.Series(spent_stats['total_locking_sizes'])
-            locking_distribution = pd.cut(locking_series, bins=script_bins).value_counts().sort_index()
+            # Calcular estadísticas básicas
+            locking_mean = np.mean(locking_np)
+            locking_median = np.median(locking_np)  # Mediana exacta
+            locking_min = np.min(locking_np)
+            locking_max = np.max(locking_np)
+            
+            f.write(f"\nLocking Script Size Statistics (bytes):\n")
+            f.write(f"- Average: {locking_mean:.2f}\n")
+            f.write(f"- Median: {locking_median}\n")
+            f.write(f"- Min: {locking_min}\n")
+            f.write(f"- Max: {locking_max}\n")
+            
+            # Calcular distribución
             f.write(f"\nLocking Script Size Distribution:\n")
-            f.write(str(locking_distribution) + "\n")
+            locking_dist = count_in_bins(locking_np, script_bins)
+            for label, count in sorted(locking_dist.items()):
+                f.write(f"{label}: {count}\n")
+            
+            # Liberar memoria
+            del locking_np
+            gc.collect()
+    
+    # Forzar limpieza adicional de memoria
+    print(f"Finished writing spent UTXO statistics to {filename}")
+    gc.collect()
 
 def write_unspent_total_stats(output_dir, unspent_stats):
     """Escribe las estadísticas totales de UTXOs no gastados a un archivo"""
@@ -717,64 +777,64 @@ def main():
     del spent_total_stats
     gc.collect()
     
-    # Paso 2: Procesar datos para estadísticas totales de UTXOs no gastados
-    print("Step 2: Processing total statistics for unspent UTXOs...")
-    unspent_total_stats = process_total_unspent_stats()
+    # # Paso 2: Procesar datos para estadísticas totales de UTXOs no gastados
+    # print("Step 2: Processing total statistics for unspent UTXOs...")
+    # unspent_total_stats = process_total_unspent_stats()
     
-    # Generar gráficos y escribir estadísticas para UTXOs no gastados totales
-    print("  Generating plots and writing statistics for unspent UTXOs...")
-    generate_plots({
-        'amounts': unspent_total_stats['total_amounts'],
-        'locking_sizes': unspent_total_stats['total_locking_sizes']
-    }, output_dir, "unspent_overall", "lightgreen", "Unspent TXOs")
+    # # Generar gráficos y escribir estadísticas para UTXOs no gastados totales
+    # print("  Generating plots and writing statistics for unspent UTXOs...")
+    # generate_plots({
+    #     'amounts': unspent_total_stats['total_amounts'],
+    #     'locking_sizes': unspent_total_stats['total_locking_sizes']
+    # }, output_dir, "unspent_overall", "lightgreen", "Unspent TXOs")
     
-    write_unspent_total_stats(output_dir, unspent_total_stats)
+    # write_unspent_total_stats(output_dir, unspent_total_stats)
     
-    # Liberar memoria
-    del unspent_total_stats
-    gc.collect()
+    # # Liberar memoria
+    # del unspent_total_stats
+    # gc.collect()
     
-    # Escribir estadísticas comparativas totales
-    print("Step 3: Writing total comparative statistics...")
-    write_total_comparative_stats(output_dir)
+    # # Escribir estadísticas comparativas totales
+    # print("Step 3: Writing total comparative statistics...")
+    # write_total_comparative_stats(output_dir)
     
-    # Paso 4: Procesar cada segmento para UTXOs gastados
-    # Ahora usamos los segmentos precalculados
-    print(f"Step 4: Processing {len(all_segments)} segments for spent UTXOs...")
-    for segment in all_segments:
-        print(f"  Processing segment {segment} for spent UTXOs...")
-        segment_stats = process_segment_spent_stats(segment)
+    # # Paso 4: Procesar cada segmento para UTXOs gastados
+    # # Ahora usamos los segmentos precalculados
+    # print(f"Step 4: Processing {len(all_segments)} segments for spent UTXOs...")
+    # for segment in all_segments:
+    #     print(f"  Processing segment {segment} for spent UTXOs...")
+    #     segment_stats = process_segment_spent_stats(segment)
         
-        if segment_stats['lifespans'] or segment_stats['amounts']:
-            # Generar gráficos y escribir estadísticas para este segmento
-            generate_segment_plots(segment, segment_stats, output_dir, "spent")
-            write_segment_spent_stats(output_dir, segment, segment_stats)
+    #     if segment_stats['lifespans'] or segment_stats['amounts']:
+    #         # Generar gráficos y escribir estadísticas para este segmento
+    #         generate_segment_plots(segment, segment_stats, output_dir, "spent")
+    #         write_segment_spent_stats(output_dir, segment, segment_stats)
         
-        # Liberar memoria
-        del segment_stats
-        gc.collect()
+    #     # Liberar memoria
+    #     del segment_stats
+    #     gc.collect()
     
-    # Paso 5: Procesar cada segmento para UTXOs no gastados
-    # También usamos los segmentos precalculados
-    print(f"Step 5: Processing {len(all_segments)} segments for unspent UTXOs...")
-    for segment in all_segments:
-        print(f"  Processing segment {segment} for unspent UTXOs...")
-        segment_stats = process_segment_unspent_stats(segment)
+    # # Paso 5: Procesar cada segmento para UTXOs no gastados
+    # # También usamos los segmentos precalculados
+    # print(f"Step 5: Processing {len(all_segments)} segments for unspent UTXOs...")
+    # for segment in all_segments:
+    #     print(f"  Processing segment {segment} for unspent UTXOs...")
+    #     segment_stats = process_segment_unspent_stats(segment)
         
-        if segment_stats['amounts']:
-            # Generar gráficos y escribir estadísticas para este segmento
-            generate_segment_plots(segment, segment_stats, output_dir, "unspent")
-            write_segment_unspent_stats(output_dir, segment, segment_stats)
+    #     if segment_stats['amounts']:
+    #         # Generar gráficos y escribir estadísticas para este segmento
+    #         generate_segment_plots(segment, segment_stats, output_dir, "unspent")
+    #         write_segment_unspent_stats(output_dir, segment, segment_stats)
         
-        # Liberar memoria
-        del segment_stats
-        gc.collect()
+    #     # Liberar memoria
+    #     del segment_stats
+    #     gc.collect()
     
-    # Paso 6: Escribir estadísticas comparativas por segmento
-    print("Step 6: Writing comparative statistics for each segment...")
-    write_segment_comparative_stats(output_dir, all_segments)
+    # # Paso 6: Escribir estadísticas comparativas por segmento
+    # print("Step 6: Writing comparative statistics for each segment...")
+    # write_segment_comparative_stats(output_dir, all_segments)
     
-    print("Analysis complete. All results saved to:", output_dir)
+    # print("Analysis complete. All results saved to:", output_dir)
 
 
 if __name__ == "__main__":
