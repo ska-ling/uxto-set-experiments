@@ -759,23 +759,23 @@ def write_segment_comparative_stats(output_dir, all_segments):
 def main():
     print("Starting UTXO set analysis...")
     
-    # Paso 1: Procesar datos para estadísticas totales de UTXOs gastados
-    print("Step 1: Processing total statistics for spent UTXOs...")
-    spent_total_stats = process_total_spent_stats()
+    # # Paso 1: Procesar datos para estadísticas totales de UTXOs gastados
+    # print("Step 1: Processing total statistics for spent UTXOs...")
+    # spent_total_stats = process_total_spent_stats()
     
-    # Generar gráficos y escribir estadísticas para UTXOs gastados totales
-    # print("  Generating plots and writing statistics for spent UTXOs...")
-    # generate_plots({
-    #     'lifespans': spent_total_stats['total_lifespans'],
-    #     'amounts': spent_total_stats['total_amounts'],
-    #     'locking_sizes': spent_total_stats['total_locking_sizes']
-    # }, output_dir, "spent_overall", "skyblue", "Spent TXOs")
+    # # Generar gráficos y escribir estadísticas para UTXOs gastados totales
+    # # print("  Generating plots and writing statistics for spent UTXOs...")
+    # # generate_plots({
+    # #     'lifespans': spent_total_stats['total_lifespans'],
+    # #     'amounts': spent_total_stats['total_amounts'],
+    # #     'locking_sizes': spent_total_stats['total_locking_sizes']
+    # # }, output_dir, "spent_overall", "skyblue", "Spent TXOs")
     
-    write_spent_total_stats(output_dir, spent_total_stats)
+    # write_spent_total_stats(output_dir, spent_total_stats)
     
-    # Liberar memoria - ya no necesitamos obtener all_segments de aquí
-    del spent_total_stats
-    gc.collect()
+    # # Liberar memoria - ya no necesitamos obtener all_segments de aquí
+    # del spent_total_stats
+    # gc.collect()
     
     # Paso 2: Procesar datos para estadísticas totales de UTXOs no gastados
     print("Step 2: Processing total statistics for unspent UTXOs...")
