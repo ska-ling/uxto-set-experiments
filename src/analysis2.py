@@ -32,6 +32,7 @@ max_block = 800_000  # Último bloque conocido
 # Pre-calcular todos los segmentos posibles
 all_segments = list(range(min_block, max_block, segment_size))
 print(f"Pre-calculated {len(all_segments)} segments from {min_block} to {max_block}")
+print(f"Segments: {all_segments}")
 
 lifespan_bins = [0, 10, 100, 1000, 10000, 100000, 1000000]
 amount_bins = [0, 10_000, 1_000_000, 100_000_000, 1_000_000_000, 10_000_000_000, float('inf')]
@@ -96,10 +97,8 @@ def process_unspent_chunk_for_segment(chunk, target_segment=None, collect_totals
         'locking_sizes': []
     }
     
-    # Convertir columnas numéricas
-    chunk["creation_block"] = pd.to_numeric(chunk["creation_block"], errors="coerce")
-    chunk["value"] = pd.to_numeric(chunk["value"], errors="coerce")
-    chunk["locking_script_size"] = pd.to_numeric(chunk["locking_script_size"], errors="coerce")
+    # Usar directamente los datos numéricos sin conversión
+    # Ya que ahora leemos con dtypes específicos
     
     # Clasificar en segmentos
     chunk["segment"] = (chunk["creation_block"] // segment_size) * segment_size
@@ -262,20 +261,23 @@ def process_total_unspent_stats():
     """Procesa todos los archivos para obtener estadísticas totales de UTXOs no gastados"""
     # Inicializar variables para UTXOs no gastados
     unspent_count = 0
-    unspent_amounts = []
-    unspent_locking_sizes = []
+    
+    # Usar arrays NumPy para mejor rendimiento y memoria
+    unspent_amounts = np.array([], dtype=np.int64)
+    unspent_locking_sizes = np.array([], dtype=np.int16)
     
     # Procesar archivos de UTXOs no gastados
     print(f"  Processing {len(unspent_files)} unspent UTXO files for totals...")
-    for file in unspent_files:
-        print(f"    Processing file: {file}")
+    for i, file in enumerate(unspent_files):
+        print(f"    Processing file: {file} ({i+1}/{len(unspent_files)})")
+        
+        # Leer el archivo de manera diferente ya que tiene un formato especial
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
-            usecols=[0, 1, 2, 3], # Skip unlocking_script_size to save memory
+            usecols=[0, 2, 3],  # Solo leemos las columnas que necesitamos
             dtype={
                 "creation_block": np.int32,
-                "spent_block": np.int32,
                 "value": np.int64,
                 "locking_script_size": np.int16
             },
@@ -285,24 +287,27 @@ def process_total_unspent_stats():
         )
         
         for chunk in chunks:
-            # Procesar el chunk para estadísticas totales
-            results = process_unspent_chunk_for_segment(chunk, collect_totals=True)
+            # Incrementar el contador de UTXOs no gastados
+            chunk_count = len(chunk)
+            unspent_count += chunk_count
             
-            # Actualizar totales
-            unspent_count += results['count']
-            unspent_amounts.extend(results['amounts'])
-            unspent_locking_sizes.extend(results['locking_sizes'])
+            # Extraer datos como arrays NumPy
+            chunk_amounts = chunk["value"].to_numpy(dtype=np.int64)
+            chunk_locking = chunk["locking_script_size"].to_numpy(dtype=np.int16)
             
-            # Ya no necesitamos identificar segmentos
+            # Concatenar con los arrays existentes
+            unspent_amounts = np.concatenate([unspent_amounts, chunk_amounts])
+            unspent_locking_sizes = np.concatenate([unspent_locking_sizes, chunk_locking])
             
-            # del chunk
-            # gc.collect()
+            # Liberar memoria
+            del chunk
+            gc.collect()
     
-    # Consolidar resultados - ya no necesitamos devolver all_segments
+    # Consolidar resultados
     return {
         'total_count': unspent_count,
-        'total_amounts': unspent_amounts,
-        'total_locking_sizes': unspent_locking_sizes,
+        'total_amounts': unspent_amounts.tolist(),
+        'total_locking_sizes': unspent_locking_sizes.tolist(),
     }
 
 def process_segment_spent_stats(segment):
@@ -362,7 +367,7 @@ def process_segment_unspent_stats(segment):
         chunks = pd.read_csv(
             file, 
             names=["creation_block", "spent_block", "value", "locking_script_size", "unlocking_script_size"], 
-            usecols=[0, 1, 2, 3, 4], 
+            usecols=[0, 2, 3],  # Solo leemos las columnas que necesitamos
             skiprows=1, 
             chunksize=chunk_size,
             low_memory=False
@@ -818,7 +823,7 @@ def main():
     # También usamos los segmentos precalculados
     print(f"Step 5: Processing {len(all_segments)} segments for unspent UTXOs...")
     for segment in all_segments:
-        print(f"  Processing segment {segment} for unspent UTXOs...")
+        print(f"  Processing segment {segment} for unspent TXOs...")
         segment_stats = process_segment_unspent_stats(segment)
         
         if segment_stats['amounts']:
