@@ -78,8 +78,8 @@ bool is_op_return(kth::domain::chain::script const& script) {
         return false;
     }
     if (bytes[0] == 0x6a) { // OP_RETURN
-        fmt::print("OP_RETURN detected ***************************\n");
-        print_hex(bytes);
+        // fmt::print("OP_RETURN detected ***************************\n");
+        // print_hex(bytes);
         return true;
     }
     return false;
