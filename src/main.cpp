@@ -84,7 +84,7 @@ void process_block(std::string const& block_hex, size_t block_height) {
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
             size_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
             auto script_pattern = uint32_t(tx.outputs()[i].script().output_pattern());
-            utxo_set[key] = {block_height, value, locking_script_size};
+            utxo_set[key] = {block_height, value, locking_script_size, script_pattern};
         }
 
         for (const auto& input : tx.inputs()) {
