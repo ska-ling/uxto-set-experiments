@@ -15,9 +15,10 @@
 using UTXOKey = std::array<uint8_t, 36>;
 
 struct UTXOEntry {
-    size_t creation_block;
-    uint64_t value;        // Monto del output (satoshis)
-    size_t locking_script_size;    // Tamaño del locking script (bytes)
+    uint32_t creation_block;
+    uint64_t value;                // Monto del output (satoshis)
+    uint32_t locking_script_size;    // Tamaño del locking script (bytes)
+    uint32_t script_pattern;         // Patrón del script
 };
 
 // UTXO Map
@@ -48,7 +49,7 @@ void open_new_output_file() {
     }
     std::string filename = fmt::format("{}/utxo-history-{}.csv", output_directory, output_file_index++);
     output_file.open(filename);
-    output_file << "creation_block,spent_block,value,locking_script_size,unlocking_script_size\n";
+    output_file << "creation_block,spent_block,value,locking_script_size,unlocking_script_size;script_pattern\n";
 }
 
 void write_output_buffer() {
@@ -82,6 +83,7 @@ void process_block(std::string const& block_hex, size_t block_height) {
             auto key = create_utxo_key(tx.hash(), i);
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
             size_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
+            auto script_pattern = uint32_t(tx.outputs()[i].script().output_pattern());
             utxo_set[key] = {block_height, value, locking_script_size};
         }
 
@@ -89,9 +91,9 @@ void process_block(std::string const& block_hex, size_t block_height) {
             auto key = create_utxo_key(input.previous_output().hash(), input.previous_output().index());
             auto it = utxo_set.find(key);
             if (it != utxo_set.end()) {
-                size_t unlocking_script_size = input.script().serialized_size(false); // Tamaño del unlocking script
+                uint32_t unlocking_script_size = input.script().serialized_size(false); // Tamaño del unlocking script
                 output_buffer.push_back(
-                    fmt::format("{},{},{},{},{}\n", 
+                    fmt::format("{},{},{},{},{},{}\n",
                         it->second.creation_block, 
                         block_height, 
                         it->second.value, 

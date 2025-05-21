@@ -1,0 +1,33 @@
+======== UNSPENT UTXO ANALYSIS SUMMARY ========
+
+Total Unspent UTXOs: 113562059
+
+Amount Statistics (Satoshis):
+- Average: 637451323.04
+- Median: 1111.0
+- Min: 0
+- Max: 47821787835533
+
+Amount Distribution:
+(0.0, 10000.0]                   36750406
+(10000.0, 1000000.0]             19102025
+(1000000.0, 100000000.0]         22404900
+(100000000.0, 1000000000.0]       1228797
+(1000000000.0, 10000000000.0]      243620
+(10000000000.0, inf]               192363
+Name: count, dtype: int64
+
+Locking Script Size Statistics (bytes):
+- Average: 38.30
+- Median: 25.0
+- Min: -30056
+- Max: 7897
+
+Locking Script Size Distribution:
+(0.0, 20.0]        6757546
+(20.0, 50.0]      89491516
+(50.0, 100.0]      4319932
+(100.0, 200.0]    11886808
+(200.0, 500.0]     1106209
+(500.0, inf]            38
+Name: count, dtype: int64

@@ -1,0 +1,50 @@
+======== SEGMENT 300000 - 349999 SPENT UTXO ANALYSIS ========
+
+Total Spent UTXOs in segment: 76524675
+- With lifespan > 0: 65065483
+- With lifespan = 0: 11459192
+
+Lifespan Statistics (blocks):
+- Average: 9194.17
+- Median: 49.0
+- Min: 1
+- Max: 478140
+
+Lifespan Distribution:
+(0, 10]              22461499
+(10, 100]            14735260
+(100, 1000]          12039315
+(1000, 10000]         8594537
+(10000, 100000]       5333365
+(100000, 1000000]     1901507
+Name: count, dtype: int64
+
+Amount Statistics (Satoshis):
+- Average: 292140071.42
+- Median: 2012741.0
+- Min: 0
+- Max: 21751763438199
+
+Amount Distribution:
+(0.0, 10000.0]                    4884900
+(10000.0, 1000000.0]             20861995
+(1000000.0, 100000000.0]         31533535
+(100000000.0, 1000000000.0]       5882768
+(1000000000.0, 10000000000.0]     1631842
+(10000000000.0, inf]               270393
+Name: count, dtype: int64
+
+Locking Script Size Statistics (bytes):
+- Average: 25.04
+- Median: 25.0
+- Min: 0
+- Max: 1059
+
+Locking Script Size Distribution:
+(0.0, 20.0]              0
+(20.0, 50.0]      65010805
+(50.0, 100.0]        15175
+(100.0, 200.0]       39487
+(200.0, 500.0]          13
+(500.0, inf]             1
+Name: count, dtype: int64
