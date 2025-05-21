@@ -36,6 +36,13 @@ bytes_t hex2vec(char const* src, size_t n) {
     return bytes;
 }
 
+void print_hex(std::vector<uint8_t> const& bytes) {
+    for (auto byte : bytes) {
+        fmt::print("{:02x}", byte);
+    }
+    fmt::print("\n");
+}
+
 std::vector<bytes_t> get_blocks_raw_from_n(std::filesystem::path blocks_filename, size_t from_block, size_t n) {
     std::vector<bytes_t> blocks_raw;
     blocks_raw.reserve(n);
