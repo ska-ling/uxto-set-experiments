@@ -86,6 +86,8 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
             uint16_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
             auto output_script_pattern = uint8_t(tx.outputs()[i].script().output_pattern());
             auto input_script_pattern = uint8_t(tx.inputs()[i].script().input_pattern());
+            std::cout << "Output script pattern: " << (int)output_script_pattern << std::endl;
+            std::cout << "Input script pattern: " << (int)input_script_pattern << std::endl;
             utxo_set[key] = {block_height, value, locking_script_size, output_script_pattern, input_script_pattern};
         }
 
