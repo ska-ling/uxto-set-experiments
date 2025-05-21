@@ -73,7 +73,7 @@ void write_output_buffer() {
 }
 
 bool is_op_return(kth::domain::chain::script const& script) {
-    auto const& bytes = tx.outputs()[i].script().bytes();
+    auto const& bytes = script.bytes();
     if (bytes.empty()) {
         return false;
     }
@@ -108,9 +108,9 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
             // // std::cout << "Output script pattern: " << (int)output_script_pattern << std::endl;
             // // std::cout << "Input script pattern: " << (int)input_script_pattern << std::endl;
             
-            bool const is_op_return = is_op_return(tx.outputs()[i].script());
+            bool const op_return = is_op_return(tx.outputs()[i].script());
             
-            utxo_set[key] = {block_height, value, locking_script_size, tx_coinbase, is_op_return};
+            utxo_set[key] = {block_height, value, locking_script_size, tx_coinbase, op_return};
         }
 
         for (const auto& input : tx.inputs()) {
