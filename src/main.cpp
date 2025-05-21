@@ -16,8 +16,10 @@ using UTXOKey = std::array<uint8_t, 36>;
 
 struct UTXOEntry {
     uint32_t creation_block;
-    uint64_t value;                // Monto del output (satoshis)
+    uint64_t value;                  // Monto del output (satoshis)
     uint16_t locking_script_size;    // Tamaño del locking script (bytes)
+    bool tx_coinbase;
+    bool op_return;
 };
 
 // UTXO Map
@@ -48,7 +50,7 @@ void open_new_output_file() {
     }
     std::string filename = fmt::format("{}/utxo-history-{}.csv", output_directory, output_file_index++);
     output_file.open(filename);
-    output_file << "creation_block,spent_block,value,locking_script_size,unlocking_script_size\n";
+    output_file << "creation_block,spent_block,value,locking_script_size,unlocking_script_size;tx_coinbase;op_return\n";
 }
 
 void write_output_buffer() {
@@ -70,6 +72,19 @@ void write_output_buffer() {
     fmt::print("Output file flushed.\n");
 }
 
+bool is_op_return(kth::domain::chain::script const& script) {
+    auto const& bytes = tx.outputs()[i].script().bytes();
+    if (bytes.empty()) {
+        return false;
+    }
+    if (bytes[0] == 0x6a) { // OP_RETURN
+        fmt::print("OP_RETURN detected ***************************\n");
+        print_hex(bytes);
+        return true;
+    }
+    return false;
+}
+
 // Function to process a block
 void process_block(std::string const& block_hex, uint32_t block_height) {
     auto block_bytes = hex2vec(block_hex.data(), block_hex.size());
@@ -78,20 +93,24 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
     auto const& blk = blk_exp.value();
 
     for (const auto& tx : blk.transactions()) {
+        bool const tx_coinbase = tx.is_coinbase();
         for (size_t i = 0; i < tx.outputs().size(); ++i) {
             auto key = create_utxo_key(tx.hash(), i);
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
             uint16_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
 
-            auto const& bytes = tx.outputs()[i].script().bytes();
-            fmt::print("Output script bytes: ");
-            print_hex(bytes);
+            // auto const& bytes = tx.outputs()[i].script().bytes();
+            // fmt::print("Output script bytes: ");
+            // print_hex(bytes);
 
             // auto output_script_pattern = uint8_t(tx.outputs()[i].script().output_pattern());
             // auto input_script_pattern = uint8_t(tx.outputs()[i].script().input_pattern());
             // // std::cout << "Output script pattern: " << (int)output_script_pattern << std::endl;
             // // std::cout << "Input script pattern: " << (int)input_script_pattern << std::endl;
-            utxo_set[key] = {block_height, value, locking_script_size};
+            
+            bool const is_op_return = is_op_return(tx.outputs()[i].script());
+            
+            utxo_set[key] = {block_height, value, locking_script_size, tx_coinbase, is_op_return};
         }
 
         for (const auto& input : tx.inputs()) {
@@ -100,12 +119,14 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
             if (it != utxo_set.end()) {
                 uint32_t unlocking_script_size = input.script().serialized_size(false); // Tamaño del unlocking script
                 output_buffer.push_back(
-                    fmt::format("{},{},{},{},{}\n",
+                    fmt::format("{},{},{},{},{},{},{}\n",
                         it->second.creation_block, 
                         block_height, 
                         it->second.value, 
                         it->second.locking_script_size,
-                        unlocking_script_size
+                        unlocking_script_size,
+                        it->second.tx_coinbase,
+                        it->second.op_return
                     )
                 );
                 utxo_set.erase(it);
@@ -145,10 +166,12 @@ int main() {
 
     // Write remaining unspent UTXOs
     for (const auto& [key, utxo] : utxo_set) {
-        output_buffer.push_back(fmt::format("{},Unspent,{},{},-\n", 
+        output_buffer.push_back(fmt::format("{},Unspent,{},{},-{},{}\n", 
             utxo.creation_block, 
             utxo.value, 
-            utxo.locking_script_size
+            utxo.locking_script_size,
+            utxo.tx_coinbase,
+            utxo.op_return
         ));
     }
 
