@@ -18,7 +18,8 @@ struct UTXOEntry {
     uint32_t creation_block;
     uint64_t value;                // Monto del output (satoshis)
     uint16_t locking_script_size;    // Tamaño del locking script (bytes)
-    uint8_t script_pattern;         // Patrón del script
+    uint8_t output_script_pattern;         // Patrón del script output
+    uint8_t input_script_pattern;          // Patrón del script input
 };
 
 // UTXO Map
@@ -49,7 +50,7 @@ void open_new_output_file() {
     }
     std::string filename = fmt::format("{}/utxo-history-{}.csv", output_directory, output_file_index++);
     output_file.open(filename);
-    output_file << "creation_block,spent_block,value,locking_script_size,unlocking_script_size;script_pattern\n";
+    output_file << "creation_block,spent_block,value,locking_script_size,unlocking_script_size;output_script_pattern;input_script_pattern\n";
 }
 
 void write_output_buffer() {
@@ -83,8 +84,9 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
             auto key = create_utxo_key(tx.hash(), i);
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
             uint16_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
-            auto script_pattern = uint8_t(tx.outputs()[i].script().output_pattern());
-            utxo_set[key] = {block_height, value, locking_script_size, script_pattern};
+            auto output_script_pattern = uint8_t(tx.outputs()[i].script().output_pattern());
+            auto input_script_pattern = uint8_t(tx.inputs()[i].script().input_pattern());
+            utxo_set[key] = {block_height, value, locking_script_size, output_script_pattern, input_script_pattern};
         }
 
         for (const auto& input : tx.inputs()) {
@@ -93,13 +95,14 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
             if (it != utxo_set.end()) {
                 uint32_t unlocking_script_size = input.script().serialized_size(false); // Tamaño del unlocking script
                 output_buffer.push_back(
-                    fmt::format("{},{},{},{},{},{}\n",
+                    fmt::format("{},{},{},{},{},{},{}\n",
                         it->second.creation_block, 
                         block_height, 
                         it->second.value, 
                         it->second.locking_script_size,
                         unlocking_script_size,
-                        it->second.script_pattern
+                        it->second.output_script_pattern,
+                        it->second.input_script_pattern
                     )
                 );
                 utxo_set.erase(it);
@@ -139,11 +142,12 @@ int main() {
 
     // Write remaining unspent UTXOs
     for (const auto& [key, utxo] : utxo_set) {
-        output_buffer.push_back(fmt::format("{},Unspent,{},{},-,{}\n", 
+        output_buffer.push_back(fmt::format("{},Unspent,{},{},-,{},{}\n", 
             utxo.creation_block, 
             utxo.value, 
             utxo.locking_script_size,
-            utxo.script_pattern
+            utxo.output_script_pattern,
+            utxo.input_script_pattern
         ));
     }
 
