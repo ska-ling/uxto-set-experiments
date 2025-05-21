@@ -17,8 +17,8 @@ using UTXOKey = std::array<uint8_t, 36>;
 struct UTXOEntry {
     uint32_t creation_block;
     uint64_t value;                // Monto del output (satoshis)
-    uint32_t locking_script_size;    // Tamaño del locking script (bytes)
-    uint32_t script_pattern;         // Patrón del script
+    uint16_t locking_script_size;    // Tamaño del locking script (bytes)
+    uint8_t script_pattern;         // Patrón del script
 };
 
 // UTXO Map
@@ -72,7 +72,7 @@ void write_output_buffer() {
 }
 
 // Function to process a block
-void process_block(std::string const& block_hex, size_t block_height) {
+void process_block(std::string const& block_hex, uint32_t block_height) {
     auto block_bytes = hex2vec(block_hex.data(), block_hex.size());
     kth::byte_reader reader(block_bytes);
     auto blk_exp = kth::domain::chain::block::from_data(reader);
@@ -82,8 +82,8 @@ void process_block(std::string const& block_hex, size_t block_height) {
         for (size_t i = 0; i < tx.outputs().size(); ++i) {
             auto key = create_utxo_key(tx.hash(), i);
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
-            size_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
-            auto script_pattern = uint32_t(tx.outputs()[i].script().output_pattern());
+            uint16_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
+            auto script_pattern = uint8_t(tx.outputs()[i].script().output_pattern());
             utxo_set[key] = {block_height, value, locking_script_size, script_pattern};
         }
 
