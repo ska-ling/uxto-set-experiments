@@ -98,7 +98,8 @@ void process_block(std::string const& block_hex, size_t block_height) {
                         block_height, 
                         it->second.value, 
                         it->second.locking_script_size,
-                        unlocking_script_size
+                        unlocking_script_size,
+                        it->second.script_pattern
                     )
                 );
                 utxo_set.erase(it);
@@ -138,10 +139,12 @@ int main() {
 
     // Write remaining unspent UTXOs
     for (const auto& [key, utxo] : utxo_set) {
-        output_buffer.push_back(fmt::format("{},Unspent,{},{},-\n", 
-                                            utxo.creation_block, 
-                                            utxo.value, 
-                                            utxo.locking_script_size));
+        output_buffer.push_back(fmt::format("{},Unspent,{},{},-,{}\n", 
+            utxo.creation_block, 
+            utxo.value, 
+            utxo.locking_script_size,
+            utxo.script_pattern
+        ));
     }
 
 
