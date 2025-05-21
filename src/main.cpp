@@ -92,24 +92,18 @@ void process_block(std::string const& block_hex, uint32_t block_height) {
     auto blk_exp = kth::domain::chain::block::from_data(reader);
     auto const& blk = blk_exp.value();
 
-    for (const auto& tx : blk.transactions()) {
-        bool const tx_coinbase = tx.is_coinbase();
+    auto const& txs = blk.transactions();
+    // for (const auto& tx : blk.transactions()) {
+
+    for (size_t tx_i = 0; tx_i < txs.size(); ++tx_i) {
+        auto const& tx = txs[tx_i];
+        bool const tx_coinbase = tx_i == 0;
+
         for (size_t i = 0; i < tx.outputs().size(); ++i) {
             auto key = create_utxo_key(tx.hash(), i);
             uint64_t value = tx.outputs()[i].value();       // Monto del output (satoshis)
             uint16_t locking_script_size = tx.outputs()[i].script().serialized_size(false); // Tamaño del locking script
-
-            // auto const& bytes = tx.outputs()[i].script().bytes();
-            // fmt::print("Output script bytes: ");
-            // print_hex(bytes);
-
-            // auto output_script_pattern = uint8_t(tx.outputs()[i].script().output_pattern());
-            // auto input_script_pattern = uint8_t(tx.outputs()[i].script().input_pattern());
-            // // std::cout << "Output script pattern: " << (int)output_script_pattern << std::endl;
-            // // std::cout << "Input script pattern: " << (int)input_script_pattern << std::endl;
-            
             bool const op_return = is_op_return(tx.outputs()[i].script());
-            
             utxo_set[key] = {block_height, value, locking_script_size, tx_coinbase, op_return};
         }
 
