@@ -5,27 +5,26 @@ from pathlib import Path
 import re
 from sklearn.metrics import classification_report
 
-# === CONFIG ===
+# === CONFIGURACIÓN ===
 PARQUET_DIR = Path("/home/fernando/dev/utxo-experiments/parquet_normalized")
-THRESHOLD = 1000
-EVAL_ROWS = 1_000_000
+THRESHOLD = 1000  # bloques para considerar "hot"
+EVAL_ROWS = 1_000_000  # cuántas filas usar para evaluación final
 MODEL_PATH = "modelo-hotcold-batched.txt"
 
-# === Utilidad para ordenar por índice numérico
+# === Ordenar archivos por índice numérico
 def extract_index(path):
     match = re.search(r'utxo-history-(\d+)\.parquet$', path)
     return int(match.group(1)) if match else -1
 
-# === Cargar archivos ordenados
 files = sorted(glob.glob(str(PARQUET_DIR / "utxo-history-*.parquet")), key=extract_index)
 
-# === Parámetros LightGBM
+# === LightGBM config
 params = {
     "objective": "binary",
     "metric": "binary_logloss",
     "learning_rate": 0.1,
     "num_leaves": 31,
-    "num_threads": 8,
+    "num_threads": 60,
     "verbosity": -1
 }
 
@@ -34,36 +33,49 @@ X_eval_list = []
 y_eval_list = []
 rows_seen = 0
 
-# === Entrenamiento por archivo
+# === Entrenamiento incremental por archivo
 for path in files:
     print(f"Procesando: {path}")
     try:
         df = pd.read_parquet(path)
-        print(df.columns.tolist())
 
-        df = df.copy()
+        # ✅ Target: si fue gastado y en corto plazo (<= threshold)
         df['hot'] = ((df['duration'] <= THRESHOLD) & df['event']).astype(int)
 
-        features = ['value', 'locking_script_size', 'unlocking_script_size',
-                    'tx_coinbase', 'op_return', 'epoch']
+        # ✅ Features: solo campos disponibles en tiempo real
+        features = [
+            'value',
+            'locking_script_size',
+            'unlocking_script_size',
+            'tx_coinbase',
+            'op_return',
+            'epoch',
+            'creation_block'
+        ]
         X = df[features]
         y = df['hot']
 
-        # Evaluación acumulada
+        # ✅ Acumular evaluación (opcional)
         if rows_seen < EVAL_ROWS:
             X_eval_list.append(X)
             y_eval_list.append(y)
             rows_seen += len(X)
 
-        # Entrenar con este batch
+        # ✅ Entrenamiento incremental
         train_set = lgb.Dataset(X, label=y)
-        model = lgb.train(params, train_set, num_boost_round=20, init_model=model, keep_training_booster=True)
+        model = lgb.train(
+            params,
+            train_set,
+            num_boost_round=20,
+            init_model=model,
+            keep_training_booster=True
+        )
 
     except Exception as e:
         print(f"❌ Error con {path}: {e}")
 
 # === Evaluación final
-print("\nEvaluando sobre subset de evaluación...")
+print("\n📊 Evaluando sobre subset de evaluación...")
 X_eval = pd.concat(X_eval_list)
 y_eval = pd.concat(y_eval_list)
 
@@ -74,4 +86,4 @@ print(classification_report(y_eval, y_pred_class, digits=4))
 
 # === Guardar modelo
 model.save_model(MODEL_PATH)
-print(f"✅ Modelo guardado en: {MODEL_PATH}")
+print(f"✅ Modelo entrenado guardado en: {MODEL_PATH}")
