@@ -47,11 +47,13 @@ df_all = pd.concat(dfs, ignore_index=True)
 print(f"Total UTXOs cargados: {len(df_all)}")
 
 # === Calcular columna epoch
+print("Calculando epoch...")
 df_all['epoch'] = df_all['duration'].astype(int) + 1  # asegurar tipo
 df_all['creation_block'] = 789_999 - df_all['duration']  # recrear creación
 df_all['epoch'] = df_all['creation_block'].apply(assign_epoch)
 
 # === Calcular columna target 'hot'
+print("Calculando columna 'hot'...")
 df_all['hot'] = ((df_all['duration'] <= THRESHOLD) & df_all['event']).astype(int)
 
 # === Features y Target

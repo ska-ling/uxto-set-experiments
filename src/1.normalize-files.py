@@ -17,6 +17,21 @@ all_parquets = sorted(glob.glob(str(SRC_DIR / "utxo-history-*.parquet")), key=ex
 spent_files = all_parquets[:353]
 unspent_files = all_parquets[353:396]
 
+# === Epoch helper ===
+def assign_epoch(block_height):
+    if block_height < 100_000:
+        return 0
+    elif block_height < 300_000:
+        return 1
+    elif block_height < 500_000:
+        return 2
+    elif block_height < 600_000:
+        return 3
+    elif block_height < 700_000:
+        return 4
+    else:
+        return 5
+
 # === Función procesadora ===
 def process_parquet_files(files, is_spent):
     for path in files:
@@ -28,7 +43,6 @@ def process_parquet_files(files, is_spent):
             df['creation_block'] = df['creation_block'].astype(int)
             df['value'] = df['value'].astype(int)
             df['locking_script_size'] = df['locking_script_size'].astype(int)
-
             df['tx_coinbase'] = df['tx_coinbase'].astype(str).str.lower() == 'true'
             df['op_return'] = df['op_return'].astype(str).str.lower() == 'true'
 
@@ -41,17 +55,15 @@ def process_parquet_files(files, is_spent):
                 df['duration'] = FINAL_BLOCK_HEIGHT - df['creation_block']
                 df['event'] = False
                 df['unlocking_script_size'] = 0
+                df['spent_block'] = pd.NA  # mantener columna aunque esté vacía
 
-            # Selección final de columnas
-            df_out = df[['duration', 'event', 'value', 'locking_script_size',
-                         'unlocking_script_size', 'tx_coinbase', 'op_return']]
+            df['epoch'] = df['creation_block'].apply(assign_epoch)
 
             out_path = DST_DIR / Path(path).name
-            df_out.to_parquet(out_path, index=False)
+            df.to_parquet(out_path, index=False)
         except Exception as e:
             print(f"❌ Error procesando {path}: {e}")
 
-# === Procesar ambas listas ===
 process_parquet_files(spent_files, is_spent=True)
 process_parquet_files(unspent_files, is_spent=False)
 
