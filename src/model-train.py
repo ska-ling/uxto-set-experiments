@@ -26,7 +26,7 @@ def load_spent_csvs(file_paths):
                     unlocking_script_size, tx_coinbase, op_return, lifetime
                 ])
             except Exception as e:
-                print(f"Error en archivo {path}, línea {index}: {e}")
+                print(f"Error en archivo {path}, línea {index}, row {row}: {e}")
     return rows
 
 # Cargar datos solo de SPENT
