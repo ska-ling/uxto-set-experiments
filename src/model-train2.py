@@ -87,7 +87,7 @@ print(f"MAE final sobre subset: {mean_absolute_error(y_eval, y_pred):.2f} bloque
 #Guardar el modelo
 joblib.dump(model, 'sgd_model.pkl')
 joblib.dump(scaler, 'scaler.pkl')
-Cargar el modelo
+# Cargar el modelo
 model = joblib.load('sgd_model.pkl')
 scaler = joblib.load('scaler.pkl')
 y_pred = model.predict(X_eval_scaled)
