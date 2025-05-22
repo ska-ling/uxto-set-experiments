@@ -14,6 +14,7 @@ print(f"Archivos no gastados: {UNSPENT_FILES}")
 def load_csvs(file_paths, spent_flag):
     rows = []
     for path in file_paths:
+        print(f"Procesando archivo: {path}")
         df = pd.read_csv(path, dtype=str)
         for index, row in df.iterrows():
             try:
