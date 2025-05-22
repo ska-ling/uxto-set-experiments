@@ -20,4 +20,7 @@ for i in range(395):  # 0 a 394 inclusive
         row = row.strip()
         if ",Unspent" in row:
             print(f"Primer archivo con Unspent: {file}")
-            break
+            # end of the program
+            exit(0)
+
+print(f"No se encontró 'Unspent' en ningún archivo.")
