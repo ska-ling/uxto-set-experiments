@@ -10,10 +10,10 @@ input_dir = Path("/home/fernando/dev/utxo-experiments/output/")  # <-- CAMBIA ES
 output_dir = Path("/home/fernando/dev/utxo-experiments/output-fixed/")
 output_dir.mkdir(exist_ok=True)
 
-# el primer archivo con Unspent es el 352
-# el último archivo es el 394
+# el primer archivo con Unspent es el 353
+# el último archivo es el 395
 
-for i in range(352, 395):  # [352, 395)
+for i in range(353, 396):  # [353, 396)
     file = input_dir / f"utxo-history-{i}.csv"
     with open(file) as f:
         lines = f.readlines()
