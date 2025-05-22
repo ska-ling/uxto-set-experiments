@@ -45,8 +45,8 @@ for path in SPENT_FILES:
             chunk['value'] = chunk['value'].astype(int)
             chunk['locking_script_size'] = chunk['locking_script_size'].astype(int)
             chunk['unlocking_script_size'] = pd.to_numeric(chunk['unlocking_script_size'], errors='coerce').fillna(-1).astype(int)
-            chunk['tx_coinbase'] = chunk['tx_coinbase'].str.lower() == 'true'
-            chunk['op_return'] = chunk['op_return'].str.lower() == 'true'
+            chunk['tx_coinbase'] = chunk['tx_coinbase'].astype(str).str.lower() == 'true'
+            chunk['op_return'] = chunk['op_return'].astype(str).str.lower() == 'true'
             chunk['lifetime'] = chunk['spent_block'] - chunk['creation_block']
         except Exception as e:
             print(f"Error procesando chunk: {e}")
