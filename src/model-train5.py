@@ -14,8 +14,8 @@ def extract_index(path):
     return int(match.group(1)) if match else -1
 
 ALL_PARQUETS = sorted(glob.glob(str(PARQUET_DIR / "utxo-history-*.parquet")), key=extract_index)
-SPENT_PARQUETS = ALL_PARQUETS[:353][:10]      # Cambiá el slice para escalar
-UNSPENT_PARQUETS = ALL_PARQUETS[353:396][:10] # Idem
+SPENT_PARQUETS = ALL_PARQUETS[:353][:3]      # Cambiá el slice para escalar
+UNSPENT_PARQUETS = ALL_PARQUETS[353:396][:3] # Idem
 
 # === Loaders ===
 def load_spent_data(files):
