@@ -27,7 +27,7 @@ params = {
     "learning_rate": 0.1,
     "max_depth": 8,
     "verbosity": -1,
-    "num_threads": 4
+    "num_threads": 60
 }
 
 model = None
