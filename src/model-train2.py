@@ -4,9 +4,26 @@ from sklearn.linear_model import SGDRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 import numpy as np
+import joblib   
+import re
+
+def extract_index(path):
+    match = re.search(r'utxo-history-(\d+)\.csv$', path)
+    return int(match.group(1)) if match else -1
+
 
 # === Configuración ===
-SPENT_FILES = sorted(glob.glob("/home/fernando/dev/utxo-experiments/output/utxo-history-*.csv"))[:353]
+# SPENT_FILES = sorted(glob.glob("/home/fernando/dev/utxo-experiments/output/utxo-history-*.csv"))[:353]
+
+
+SPENT_FILES = sorted(
+    glob.glob("/home/fernando/dev/utxo-experiments/output/utxo-history-*.csv"),
+    key=extract_index
+)[:353]
+
+print(f"Archivos SPENT: {SPENT_FILES}")
+
+
 CHUNK_SIZE = 1_000_000  # líneas por batch
 
 # === Modelo y escalador ===
@@ -65,4 +82,13 @@ y_eval = pd.concat(y_total)
 X_eval_scaled = scaler.transform(X_eval)
 y_pred = model.predict(X_eval_scaled)
 
+print(f"MAE final sobre subset: {mean_absolute_error(y_eval, y_pred):.2f} bloques")
+
+#Guardar el modelo
+joblib.dump(model, 'sgd_model.pkl')
+joblib.dump(scaler, 'scaler.pkl')
+Cargar el modelo
+model = joblib.load('sgd_model.pkl')
+scaler = joblib.load('scaler.pkl')
+y_pred = model.predict(X_eval_scaled)
 print(f"MAE final sobre subset: {mean_absolute_error(y_eval, y_pred):.2f} bloques")
