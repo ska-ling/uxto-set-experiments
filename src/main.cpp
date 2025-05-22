@@ -160,7 +160,7 @@ int main() {
 
     // Write remaining unspent UTXOs
     for (const auto& [key, utxo] : utxo_set) {
-        output_buffer.push_back(fmt::format("{},Unspent,{},{},-{},{}\n", 
+        output_buffer.push_back(fmt::format("{},Unspent,{},{},-,{},{}\n", 
             utxo.creation_block, 
             utxo.value, 
             utxo.locking_script_size,
