@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+from math import sqrt
+
 
 # === Configuración
 PARQUET_DIR = Path("/home/fernando/dev/utxo-experiments/parquet_normalized")
@@ -63,7 +65,10 @@ y_pred = model.predict(X)
 
 # === Evaluación RMSE (solo en datos reales, no censurados)
 mask = df_eval['event']
-rmse = mean_squared_error(y_true[mask], y_pred[mask], squared=False)
+
+# rmse = mean_squared_error(y_true[mask], y_pred[mask], squared=False)
+rmse = sqrt(mean_squared_error(y_true[mask], y_pred[mask]))
+
 print(f"\n📊 RMSE (solo Spent): {rmse:.5f}")
 
 # === Estadísticas de duración esperada
