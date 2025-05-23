@@ -5,6 +5,8 @@ import numpy as np
 from pathlib import Path
 import re
 from sklearn.metrics import mean_squared_error
+from math import sqrt
+
 
 # === Configuración
 PARQUET_DIR = Path("/home/fernando/dev/utxo-experiments/parquet_normalized")
@@ -58,7 +60,10 @@ y_true = df_eval['p_spend_soon']
 
 # === Predicción y evaluación
 y_pred = model.predict(X)
-rmse = mean_squared_error(y_true, y_pred, squared=False)
+
+# rmse = mean_squared_error(y_true, y_pred, squared=False)
+rmse = sqrt(mean_squared_error(y_true, y_pred))
+
 print(f"\n📊 RMSE sobre muestra aleatoria: {rmse:.5f}")
 
 # === Resumen de las probabilidades predichas
