@@ -133,6 +133,8 @@ class UTXOStorageClassifier:
         # === CARACTERÍSTICAS TEMPORALES ===
         # Hora del día (aproximada por posición en bloque)
         df['block_time_proxy'] = df['creation_block'] % 144  # ~144 bloques por día
+        df['creation_epoch'] = df['creation_block'] // 100_000
+
         df['is_coinbase'] = df['tx_coinbase'].astype(int)
         
         # === CARACTERÍSTICAS DE CONTEXTO ===
@@ -158,7 +160,7 @@ class UTXOStorageClassifier:
         # Seleccionar características para el modelo
         feature_cols = [
             'log_value', 'total_script_size', 'script_efficiency',
-            'block_time_proxy', 'is_coinbase', 'block_density',
+            'block_time_proxy', 'creation_epoch', 'is_coinbase', 'block_density',
             'value_percentile_in_block', 'is_likely_change', 
             'is_likely_savings', 'coinbase_maturity_factor'
         ]
@@ -551,11 +553,11 @@ def main():
     classifier.generate_report(analysis, model_results, threshold_analysis)
 
     print("\n✅ Clasificador entrenado sobre datos reales.")
-    print("ℹ️  Podés usar classifier.predict_storage_decision(...) para hacer predicciones.")
+    # print("ℹ️  Podés usar classifier.predict_storage_decision(...) para hacer predicciones.")
 
     df_resultado = test_model_on_random_utxos(classifier, n_samples=100_000)
     print(f"✅ Resultado de prueba: {len(df_resultado):,} UTXOs procesados.")
-    print(f"  Hot Storage: {len(df_resultado[df_resultado['storage_decision'] == 'hot_storage']):,}")
+    print(f"  Hot Storage:  {len(df_resultado[df_resultado['storage_decision'] == 'hot_storage']):,}")
     print(f"  Cold Storage: {len(df_resultado[df_resultado['storage_decision'] == 'cold_storage']):,}")
 
 if __name__ == "__main__":
