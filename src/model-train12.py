@@ -37,6 +37,7 @@ class UTXOStorageClassifier:
             df_chunks.append(chunk)
             print(f"  Cargado {len(chunk):,} UTXOs")
         
+        print("📊 Concatenando chunks...")
         df = pd.concat(df_chunks, ignore_index=True)
         print(f"📊 Datos cargados: {len(df):,} UTXOs")
         
