@@ -23,6 +23,7 @@ files = sorted(glob.glob(str(PARQUET_DIR / "utxo-history-*.parquet")), key=extra
 samples = []
 
 for path in files:
+    print(f"Procesando: {path}")
     try:
         df = pd.read_parquet(path)
 
