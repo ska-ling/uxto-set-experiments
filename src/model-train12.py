@@ -32,8 +32,10 @@ class UTXOStorageClassifier:
         # Cargar datos en chunks para manejar el volumen
         df_chunks = []
         for file in parquet_files:
+            print(f"  Cargando {file}...")
             chunk = pd.read_parquet(file)
             df_chunks.append(chunk)
+            print(f"  Cargado {len(chunk):,} UTXOs")
         
         df = pd.concat(df_chunks, ignore_index=True)
         print(f"📊 Datos cargados: {len(df):,} UTXOs")
