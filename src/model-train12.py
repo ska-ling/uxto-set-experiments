@@ -412,6 +412,23 @@ class UTXOStorageClassifier:
         for feature, corr in top_corr.items():
             print(f"  {feature}: {corr:.3f}")
         
+
+        # ------------------------------------------------------------------------
+        # Inspección rápida del primer classification_report
+        print("\n🧪 Dump del classification_report del primer modelo:")
+
+        first_key = list(model_results.keys())[0]
+        report = model_results[first_key]['classification_report']
+
+        print(f"Modelo: {first_key}")
+        print("Claves del classification_report:", list(report.keys()))
+
+        for k, v in report.items():
+            print(f"  {repr(k)} ({type(k)}): {v if isinstance(v, dict) else '<métrica global>'}")
+        # ------------------------------------------------------------------------
+
+
+
         print("\n🎯 RENDIMIENTO DEL MODELO:")
         for name, results in model_results.items():
             print(f"\n{name}:")
@@ -494,7 +511,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:1]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
