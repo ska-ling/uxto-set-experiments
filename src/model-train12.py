@@ -181,14 +181,32 @@ class UTXOStorageClassifier:
         
         analysis = {}
         
-        # Análisis por rangos de valor
+        # # Análisis por rangos de valor
+        # value_analysis = df.groupby(pd.cut(df['value'], 
+        #                                  bins=[0, 546,    1000,   10000, 100000, 1000000, float('inf')],
+        #                                  labels=['dust', 'micro', 'small', 'medium', 'large', 'whale'])).agg({
+        #     'target': ['count', 'mean'],
+        #     'duration': 'median'
+        # }).round(3)
+        
+        # Análisis por rangos de valor (en satoshis)
         value_analysis = df.groupby(pd.cut(df['value'], 
-                                         bins=[0, 546, 1000, 10000, 100000, 1000000, float('inf')],
-                                         labels=['dust', 'micro', 'small', 'medium', 'large', 'whale'])).agg({
+            bins=[
+                0,               # dust   (< 0.00001 BCH =      $0.004)
+                1000,            # micro  (< 0.001 BCH   =      $0.4) 
+                100_000,         # small  (< 0.01 BCH    =      $4)
+                1_000_000,       # medium (< 0.1 BCH     =     $40)
+                10_000_000,      # large  (< 10 BCH      =  $4,000)
+                1_000_000_000,   # big    
+                10_000_000_000,  # whale  (≥ 100 BCH     = $40,000)
+                float('inf')
+            ],
+            labels=['dust', 'micro', 'small', 'medium', 'large', 'big', 'whale']
+        )).agg({
             'target': ['count', 'mean'],
             'duration': 'median'
         }).round(3)
-        
+
         analysis['value_patterns'] = value_analysis
         
         # Análisis coinbase vs regular
