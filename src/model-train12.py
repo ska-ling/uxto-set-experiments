@@ -484,9 +484,14 @@ def test_model_on_random_utxos(classifier, n_samples=100_000):
     if len(df_all) > n_samples:
         df_all = df_all.sample(n=n_samples, random_state=42)
 
+    # if 'duration' in df_all.columns:
+    #     print(f"Borrando columna 'duration' para evitar confusiones...")
+    #     del df_all['duration']
+
     print(f"✅ Muestra cargada: {len(df_all):,} UTXOs")
 
     # === Predecir
+    df_all = df_all.drop(columns=['duration'], errors='ignore')
     df_pred = classifier.predict_storage_decision(df_all)
 
     # === Mostrar resumen
@@ -494,7 +499,9 @@ def test_model_on_random_utxos(classifier, n_samples=100_000):
     print(df_pred['storage_decision'].value_counts())
 
     print("\n🎯 Ejemplos:")
-    print(df_pred[['value', 'duration', 'spend_probability', 'storage_decision', 'confidence']].head(20))
+    # print(df_pred[['value', 'duration', 'spend_probability', 'storage_decision', 'confidence']].head(20))
+    print(df_pred[['value', 'block_time_proxy', 'spend_probability', 'storage_decision', 'confidence']].head(100))
+    
 
     return df_pred
 
@@ -520,6 +527,8 @@ def main():
     if len(df) > 5_000_000:
         print(f"⚠️ Dataset muy grande, usando solo muestra aleatoria de 5M")
         df = df.sample(n=5_000_000, random_state=42)
+        print(f"✅ Dataset final: {len(df):,} filas")
+        print(f"🎯 Distribución target: {df['target'].value_counts().to_dict()}")
 
     # === Ingeniería de features
     df_features = classifier.engineer_features(df)
