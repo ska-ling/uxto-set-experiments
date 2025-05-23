@@ -494,6 +494,11 @@ def test_model_on_random_utxos(classifier, n_samples=100_000):
     df_all = df_all.drop(columns=['duration'], errors='ignore')
     df_pred = classifier.predict_storage_decision(df_all)
 
+    if 'creation_block' in df_pred.columns:
+        df_pred['block_time_proxy'] = df_pred['creation_block'] % 144    
+    else:
+        print("⚠️  No se encontró 'creation_block' en el DataFrame. No se puede calcular 'block_time_proxy'.")
+
     # === Mostrar resumen
     print("\n🔍 Distribución de decisiones:")
     print(df_pred['storage_decision'].value_counts())
@@ -518,7 +523,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet")) #[:1]
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:10]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
