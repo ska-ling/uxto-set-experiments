@@ -419,7 +419,20 @@ def test_model_on_random_utxos(classifier, n_samples=100_000):
     if len(df_all) > n_samples:
         df_all = df_all.sample(n=n_samples, random_state=42)
 
-    print(f"✅ Muestra cargada: {len
+    print(f"✅ Muestra cargada: {len(df_all):,} UTXOs")
+
+    # === Predecir
+    df_pred = classifier.predict_storage_decision(df_all)
+
+    # === Mostrar resumen
+    print("\n🔍 Distribución de decisiones:")
+    print(df_pred['storage_decision'].value_counts())
+
+    print("\n🎯 Ejemplos:")
+    print(df_pred[['value', 'duration', 'spend_probability', 'storage_decision', 'confidence']].head(20))
+
+    return df_pred
+
 
 
 def main():
@@ -465,7 +478,7 @@ def main():
     print(f"✅ Resultado de prueba: {len(df_resultado):,} UTXOs procesados.")
     print(f"  Hot Storage: {len(df_resultado[df_resultado['storage_decision'] == 'hot_storage']):,}")
     print(f"  Cold Storage: {len(df_resultado[df_resultado['storage_decision'] == 'cold_storage']):,}")
-    
+
 if __name__ == "__main__":
     main()
 
