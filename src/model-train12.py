@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from sklearn.preprocessing import StandardScaler
@@ -230,13 +230,19 @@ class UTXOStorageClassifier:
                 random_state=42,
                 n_jobs=-1
             ),
-            'GradientBoosting': GradientBoostingClassifier(
-                n_estimators=100,
+            # 'GradientBoosting': GradientBoostingClassifier(
+            #     n_estimators=100,
+            #     max_depth=6,
+            #     learning_rate=0.1,
+            #     random_state=42
+            # )
+            'HistGradientBoosting': HistGradientBoostingClassifier(
+                max_iter=100,         # igual a n_estimators
                 max_depth=6,
                 learning_rate=0.1,
                 random_state=42,
-                n_jobs=-1
-            )
+                early_stopping=False  # opcional: desactiva si estás haciendo tu propia validación
+            )            
         }
         
         results = {}
