@@ -413,19 +413,19 @@ class UTXOStorageClassifier:
             print(f"  {feature}: {corr:.3f}")
         
 
-        # ------------------------------------------------------------------------
-        # Inspección rápida del primer classification_report
-        print("\n🧪 Dump del classification_report del primer modelo:")
+        # # ------------------------------------------------------------------------
+        # # Inspección rápida del primer classification_report
+        # print("\n🧪 Dump del classification_report del primer modelo:")
 
-        first_key = list(model_results.keys())[0]
-        report = model_results[first_key]['classification_report']
+        # first_key = list(model_results.keys())[0]
+        # report = model_results[first_key]['classification_report']
 
-        print(f"Modelo: {first_key}")
-        print("Claves del classification_report:", list(report.keys()))
+        # print(f"Modelo: {first_key}")
+        # print("Claves del classification_report:", list(report.keys()))
 
-        for k, v in report.items():
-            print(f"  {repr(k)} ({type(k)}): {v if isinstance(v, dict) else '<métrica global>'}")
-        # ------------------------------------------------------------------------
+        # for k, v in report.items():
+        #     print(f"  {repr(k)} ({type(k)}): {v if isinstance(v, dict) else '<métrica global>'}")
+        # # ------------------------------------------------------------------------
 
 
 
@@ -434,8 +434,8 @@ class UTXOStorageClassifier:
             print(f"\n{name}:")
             print(f"  CV AUC: {results['cv_auc_mean']:.3f} ± {results['cv_auc_std']:.3f}")
             print(f"  Test AUC: {results['test_auc']:.3f}")
-            print(f"  Precision: {results['classification_report'][True]['precision']:.3f}")
-            print(f"  Recall: {results['classification_report'][True]['recall']:.3f}")
+            print(f"  Precision: {results['classification_report']['True']['precision']:.3f}")
+            print(f"  Recall: {results['classification_report']['True']['recall']:.3f}")
         
         print(f"\n⚖️ UMBRALES CALIBRADOS:")
         print(f"  Hot Storage: >= {self.thresholds['hot_threshold']:.2f}")
@@ -511,7 +511,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:1]
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet")) #[:1]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
