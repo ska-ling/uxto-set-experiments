@@ -192,14 +192,14 @@ class UTXOStorageClassifier:
         # Análisis por rangos de valor (en satoshis)
         value_analysis = df.groupby(pd.cut(df['value'], 
             bins=[
-                0,               # dust   (< 0.00001 BCH =      $0.004)
-                1000,            # micro  (< 0.001 BCH   =      $0.4) 
-                100_000,         # small  (< 0.01 BCH    =      $4)
-                1_000_000,       # medium (< 0.1 BCH     =     $40)
-                10_000_000,      # large  (< 10 BCH      =  $4,000)
-                1_000_000_000,   # big    
-                10_000_000_000,  # whale  (≥ 100 BCH     = $40,000)
-                float('inf')
+                0,               # 
+                1000,            # dust   (< 0.00001 BCH =      $0.004)
+                100_000,         # micro  (< 0.001 BCH   =      $0.4) 
+                1_000_000,       # small  (< 0.01 BCH    =      $4)
+                10_000_000,      # medium (< 0.1 BCH     =     $40)
+                1_000_000_000,   # large  (< 10 BCH      =  $4,000)
+                10_000_000_000,  # big    (< 100 BCH     = $400,000)
+                float('inf')     # whale  (≥ 100 BCH     = $40,000)
             ],
             labels=['dust', 'micro', 'small', 'medium', 'large', 'big', 'whale']
         )).agg({
@@ -543,7 +543,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:10]
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet")) #[:10]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
