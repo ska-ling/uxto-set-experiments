@@ -22,7 +22,7 @@ params = {
     "metric": "rmse",
     "learning_rate": 0.1,
     "num_leaves": 31,
-    "num_threads": 8,
+    "num_threads": 60,
     "verbosity": -1
 }
 
