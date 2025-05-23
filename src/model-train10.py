@@ -36,6 +36,12 @@ for path in files:
 
         # 🎯 Target: probabilidad simulada de gasto pronto
         df['p_spend_soon'] = ((df['duration'] <= THRESHOLD) & df['event']).astype(float)
+        # print(f"✅ Target calculado: {df['p_spend_soon'].sum():,} gastos pronto")
+
+        print("▶️  Estadísticas de target p_spend_soon:")
+        print(df['p_spend_soon'].value_counts())
+        print(df[['duration', 'event', 'p_spend_soon']].head(10))
+
 
         # Features disponibles en tiempo real
         features = [
