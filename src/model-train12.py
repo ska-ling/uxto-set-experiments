@@ -100,9 +100,9 @@ class UTXOStorageClassifier:
         unspent_mask = df['event'] == False
         long_lived_mask = df['duration'] > self.prediction_horizon
         df.loc[unspent_mask & long_lived_mask, 'target'] = False
-        
-        # Filtrar UTXOs muy recientes (menos del horizonte) para tener labels confiables
-        df = df[df['duration'] >= self.prediction_horizon]
+
+        # 🔁 CORREGIDO: filtrar después de calcular correctamente el target True
+        df = df[spent_mask | (df['duration'] >= self.prediction_horizon)]
         
         print(f"📊 Después de filtros: {len(df):,} UTXOs ({len(df)/initial_count:.1%} retenido)")
         print(f"🎯 Distribución target: {df['target'].value_counts().to_dict()}")
