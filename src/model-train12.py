@@ -73,6 +73,7 @@ class UTXOStorageClassifier:
         print(f"📊 Total cargado: {total_loaded:,} UTXOs")
         df_final = pd.concat(df_chunks, ignore_index=True)
         print(f"✅ Dataset final: {len(df_final):,} filas")
+        print(f"🎯 Distribución target: {df_final['target'].value_counts().to_dict()}")
 
         return df_final
 
@@ -233,7 +234,8 @@ class UTXOStorageClassifier:
                 n_estimators=100,
                 max_depth=6,
                 learning_rate=0.1,
-                random_state=42
+                random_state=42,
+                n_jobs=-1
             )
         }
         
