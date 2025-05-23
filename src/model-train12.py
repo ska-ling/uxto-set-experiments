@@ -245,14 +245,14 @@ class UTXOStorageClassifier:
         
         # Probar múltiples modelos
         models = {
-            'RandomForest': RandomForestClassifier(
-                n_estimators=100, 
-                max_depth=10, 
-                min_samples_split=100,
-                min_samples_leaf=50,
-                random_state=42,
-                n_jobs=-1
-            ),
+            # 'RandomForest': RandomForestClassifier(
+            #     n_estimators=100, 
+            #     max_depth=10, 
+            #     min_samples_split=100,
+            #     min_samples_leaf=50,
+            #     random_state=42,
+            #     n_jobs=-1
+            # ),
             # 'GradientBoosting': GradientBoostingClassifier(
             #     n_estimators=100,
             #     max_depth=6,
