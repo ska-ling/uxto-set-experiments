@@ -417,8 +417,8 @@ class UTXOStorageClassifier:
             print(f"\n{name}:")
             print(f"  CV AUC: {results['cv_auc_mean']:.3f} ± {results['cv_auc_std']:.3f}")
             print(f"  Test AUC: {results['test_auc']:.3f}")
-            print(f"  Precision: {results['classification_report']['1']['precision']:.3f}")
-            print(f"  Recall: {results['classification_report']['1']['recall']:.3f}")
+            print(f"  Precision: {results['classification_report'][True]['precision']:.3f}")
+            print(f"  Recall: {results['classification_report'][True]['recall']:.3f}")
         
         print(f"\n⚖️ UMBRALES CALIBRADOS:")
         print(f"  Hot Storage: >= {self.thresholds['hot_threshold']:.2f}")
