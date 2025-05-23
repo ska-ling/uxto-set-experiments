@@ -23,26 +23,60 @@ class UTXOStorageClassifier:
         self.feature_columns = []
         self.thresholds = {'hot_threshold': 0.7, 'cold_threshold': 0.3}
         
+    # def load_and_prepare_data(self, parquet_files: List[str]) -> pd.DataFrame:
+    #     """
+    #     Carga y prepara los datos desde archivos parquet
+    #     """
+    #     print("📥 Cargando datos...")
+        
+    #     # Cargar datos en chunks para manejar el volumen
+    #     df_chunks = []
+    #     for file in parquet_files:
+    #         print(f"  Cargando {file}...")
+    #         chunk = pd.read_parquet(file)
+    #         df_chunks.append(chunk)
+    #         print(f"  Cargado {len(chunk):,} UTXOs")
+        
+    #     print("📊 Concatenando chunks...")
+    #     df = pd.concat(df_chunks, ignore_index=True)
+    #     print(f"📊 Datos cargados: {len(df):,} UTXOs")
+        
+        # return self._clean_and_filter_data(df)
+        
     def load_and_prepare_data(self, parquet_files: List[str]) -> pd.DataFrame:
         """
-        Carga y prepara los datos desde archivos parquet
+        Carga y filtra los datos desde archivos parquet uno por uno sin consumir memoria excesiva.
+        Usa _clean_and_filter_data() en cada archivo individualmente.
         """
-        print("📥 Cargando datos...")
-        
-        # Cargar datos en chunks para manejar el volumen
+        print("📥 Cargando y limpiando archivos parquet...")
+
         df_chunks = []
+        total_loaded = 0
+
         for file in parquet_files:
-            print(f"  Cargando {file}...")
-            chunk = pd.read_parquet(file)
-            df_chunks.append(chunk)
-            print(f"  Cargado {len(chunk):,} UTXOs")
-        
-        print("📊 Concatenando chunks...")
-        df = pd.concat(df_chunks, ignore_index=True)
-        print(f"📊 Datos cargados: {len(df):,} UTXOs")
-        
-        return self._clean_and_filter_data(df)
-    
+            print(f"  → Procesando {file}...")
+            try:
+                chunk = pd.read_parquet(file)
+                print(f"    Cargado {len(chunk):,} UTXOs")
+                cleaned_chunk = self._clean_and_filter_data(chunk)
+
+                if not cleaned_chunk.empty:
+                    df_chunks.append(cleaned_chunk)
+                    total_loaded += len(cleaned_chunk)
+                    print(f"    ✔️  Retenidos: {len(cleaned_chunk):,}")
+                else:
+                    print("    ⚠️  Chunk vacío tras limpieza.")
+
+            except Exception as e:
+                print(f"    ❌ Error procesando {file}: {e}")
+
+        print(f"📊 Total cargado: {total_loaded:,} UTXOs")
+        df_final = pd.concat(df_chunks, ignore_index=True)
+        print(f"✅ Dataset final: {len(df_final):,} filas")
+
+        return df_final
+
+
     def _clean_and_filter_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Limpia y filtra los datos para el entrenamiento
