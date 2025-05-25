@@ -11,14 +11,6 @@ int main() {
     // Ruta al modelo ONNX exportado desde Python
     Ort::Session session(env, "/home/fernando/dev/utxo-experiments/model.onnx", session_options);
 
-
-    // feature_cols = [
-    //     'log_value', 'total_script_size', 'script_efficiency',
-    //     'block_time_proxy', 'creation_epoch', 'is_coinbase', 'block_density',
-    //     'value_percentile_in_block', 'is_likely_change', 
-    //     'is_likely_savings', 'coinbase_maturity_factor'
-    // ]
-
     // === Input features ===
     // Orden exacto según classifier.feature_columns (float32)
     std::vector<float> input_features = {
@@ -46,11 +38,6 @@ int main() {
     std::array<int64_t, 2> input_shape{1, static_cast<int64_t>(input_features.size())};
     Ort::AllocatorWithDefaultOptions allocator;
 
-    // Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-    //     allocator, input_features.data(), input_features.size(),
-    //     input_shape.data(), input_shape.size()
-    // );
-
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
 
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
@@ -62,7 +49,10 @@ int main() {
     );
 
 
-    const char* input_names[] = {"X"};
+    // const char* input_names[] = {"X"};
+    Ort::AllocatedStringPtr input_name = session.GetInputNameAllocated(0, allocator);
+    const char* input_names[] = {input_name.get()};
+
     // const char* output_names[] = {session.GetOutputName(0, allocator)};
     Ort::AllocatedStringPtr output_name = session.GetOutputNameAllocated(0, allocator);
     const char* output_names[] = {output_name.get()};
