@@ -51,7 +51,7 @@ int main() {
     );
 
 
-    const char* input_names[] = {"input"};
+    const char* input_names[] = {"X"};
     // const char* output_names[] = {session.GetOutputName(0, allocator)};
     Ort::AllocatedStringPtr output_name = session.GetOutputNameAllocated(0, allocator);
     const char* output_names[] = {output_name.get()};
