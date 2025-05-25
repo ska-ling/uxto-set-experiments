@@ -31,6 +31,7 @@ class UTXOStorageClassifier:
         self.scaler = StandardScaler()
         self.feature_columns = []
         self.thresholds = {'hot_threshold': 0.7, 'cold_threshold': 0.3}
+        self.data_stats = {}
         
     # def load_and_prepare_data(self, parquet_files: List[str]) -> pd.DataFrame:
     #     """
@@ -83,6 +84,15 @@ class UTXOStorageClassifier:
         df_final = pd.concat(df_chunks, ignore_index=True)
         print(f"✅ Dataset final: {len(df_final):,} filas")
         print(f"🎯 Distribución target: {df_final['target'].value_counts().to_dict()}")
+
+        # Guardar estadísticas básicas
+        self.data_stats = {
+            'total_utxos': len(df_final),
+            'spent_utxos': df_final['event'].sum(),
+            'unspent_utxos': (~df_final['event']).sum(),
+            'value_range': (df_final['value'].min(), df_final['value'].max()),
+            'block_range': (df_final['creation_block'].min(), df_final['creation_block'].max())
+        }
 
         return df_final
 
