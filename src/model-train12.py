@@ -188,7 +188,8 @@ class UTXOStorageClassifier:
         feature_cols.extend([col for col in df.columns if col.startswith('value_class_')])
         
         self.feature_columns = feature_cols
-        
+        print(self.feature_columns)  # Esta lista es la única verdad
+        print(len(self.feature_columns))  # Debería dar 17        
         print(f"✅ {len(feature_cols)} características creadas")
         return df
     
@@ -950,7 +951,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet")) #[:1]
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:1]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
@@ -964,6 +965,7 @@ def main():
 
     # === Ingeniería de features
     df_features = classifier.engineer_features(df)
+    exit(0)  # Descomentar para detener aquí y revisar df_features
 
     # === Análisis exploratorio
     analysis = classifier.analyze_patterns(df_features)

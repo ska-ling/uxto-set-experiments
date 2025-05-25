@@ -11,6 +11,14 @@ int main() {
     // Ruta al modelo ONNX exportado desde Python
     Ort::Session session(env, "/home/fernando/dev/utxo-experiments/model.onnx", session_options);
 
+
+    // feature_cols = [
+    //     'log_value', 'total_script_size', 'script_efficiency',
+    //     'block_time_proxy', 'creation_epoch', 'is_coinbase', 'block_density',
+    //     'value_percentile_in_block', 'is_likely_change', 
+    //     'is_likely_savings', 'coinbase_maturity_factor'
+    // ]
+
     // === Input features ===
     // Orden exacto según classifier.feature_columns (float32)
     std::vector<float> input_features = {
