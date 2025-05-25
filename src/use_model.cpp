@@ -12,7 +12,6 @@ int main() {
     Ort::Session session(env, "/home/fernando/dev/utxo-experiments/model.onnx", session_options);
 
     // === Input features ===
-    // Orden exacto según classifier.feature_columns (float32)
     std::vector<float> input_features = {
         6.3010f,   // log_value
         148.0f,    // total_script_size
@@ -25,8 +24,6 @@ int main() {
         1.0f,      // is_likely_change
         0.0f,      // is_likely_savings
         0.0f,      // coinbase_maturity_factor
-
-        // One-hot: value_class_dust, micro, small, medium, large, whale
         0.0f,      // value_class_dust
         0.0f,      // value_class_micro
         1.0f,      // value_class_small
@@ -39,7 +36,6 @@ int main() {
     Ort::AllocatorWithDefaultOptions allocator;
 
     Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
-
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
         memory_info,
         input_features.data(),
@@ -48,22 +44,26 @@ int main() {
         input_shape.size()
     );
 
-
-    // const char* input_names[] = {"X"};
+    // Obtener nombres dinámicamente
     Ort::AllocatedStringPtr input_name = session.GetInputNameAllocated(0, allocator);
+    Ort::AllocatedStringPtr output_name_0 = session.GetOutputNameAllocated(0, allocator); // label
+    Ort::AllocatedStringPtr output_name_1 = session.GetOutputNameAllocated(1, allocator); // probabilities
+
     const char* input_names[] = {input_name.get()};
+    const char* output_names[] = {output_name_0.get(), output_name_1.get()};
 
-    // const char* output_names[] = {session.GetOutputName(0, allocator)};
-    Ort::AllocatedStringPtr output_name = session.GetOutputNameAllocated(0, allocator);
-    const char* output_names[] = {output_name.get()};
-
-
+    // Ejecutar sesión
     auto output_tensors = session.Run(
-        Ort::RunOptions{nullptr}, input_names, &input_tensor, 1, output_names, 1
+        Ort::RunOptions{nullptr},
+        input_names, &input_tensor, 1,
+        output_names, 2
     );
 
-    float* result = output_tensors.front().GetTensorMutableData<float>();
-    std::cout << "🔥 Predicted spend probability: " << result[0] << std::endl;
+    // Obtener probabilidades
+    float* probabilities = output_tensors[1].GetTensorMutableData<float>();
+
+    std::cout << "🔥 Predicted spend probability (cold): " << probabilities[0] << std::endl;
+    std::cout << "🔥 Predicted spend probability (hot) : " << probabilities[1] << std::endl;
 
     return 0;
 }
