@@ -549,7 +549,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet")) #[:10]
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:1]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
@@ -592,12 +592,18 @@ def main():
 
     # print("✅ Modelo exportado como utxo_hotcold_model.onnx\n")
 
+    # Convertir el modelo scikit-learn a ONNX
+    model_hb = convert(
+        classifier.model,
+        backend="onnx",
+        extra_config={"onnx": {"zipmap": False}}
+    )
 
-    # Suponiendo que el mejor modelo está en classifier.model
-    model_hb = convert(classifier.model, backend="onnx", extra_config={"onnx": {"zipmap": False}}, input_shapes=[(1, len(classifier.feature_columns))])
-
-    # Guardar en disco
+    # Guardar el modelo ONNX en disco
     model_hb.save("utxo_hotcold_model.onnx")
+
+    print("✅ Modelo exportado como utxo_hotcold_model.onnx")
+
 
     print("✅ Modelo exportado con hummingbird-ml como utxo_hotcold_model.onnx")
 
