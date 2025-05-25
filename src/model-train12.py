@@ -7,6 +7,11 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, Tuple, List
+
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+import onnx
+
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -245,14 +250,14 @@ class UTXOStorageClassifier:
         
         # Probar múltiples modelos
         models = {
-            'RandomForest': RandomForestClassifier(
-                n_estimators=100, 
-                max_depth=10, 
-                min_samples_split=100,
-                min_samples_leaf=50,
-                random_state=42,
-                n_jobs=-1
-            ),
+            # 'RandomForest': RandomForestClassifier(
+            #     n_estimators=100, 
+            #     max_depth=10, 
+            #     min_samples_split=100,
+            #     min_samples_leaf=50,
+            #     random_state=42,
+            #     n_jobs=-1
+            # ),
             # 'GradientBoosting': GradientBoostingClassifier(
             #     n_estimators=100,
             #     max_depth=6,
@@ -572,6 +577,20 @@ def main():
 
     print("\n✅ Clasificador entrenado sobre datos reales.")
     # print("ℹ️  Podés usar classifier.predict_storage_decision(...) para hacer predicciones.")
+
+    # === Exportar modelo a ONNX
+
+    print("\n🔄 Exportando modelo a ONNX...")
+    # Suponiendo que tu modelo final está en: classifier.model
+    initial_type = [('input', FloatTensorType([None, len(classifier.feature_columns)]))]
+
+    onnx_model = convert_sklearn(classifier.model, initial_types=initial_type)
+
+    with open("utxo_hotcold_model.onnx", "wb") as f:
+        f.write(onnx_model.SerializeToString())
+
+    print("✅ Modelo exportado como utxo_hotcold_model.onnx\n")
+    
 
     df_resultado = test_model_on_random_utxos(classifier, n_samples=100_000)
     print(f"✅ Resultado de prueba: {len(df_resultado):,} UTXOs procesados.")
