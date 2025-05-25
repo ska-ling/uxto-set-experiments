@@ -264,27 +264,27 @@ class UTXOStorageClassifier:
         
         # Probar múltiples modelos
         models = {
-            'RandomForest': RandomForestClassifier(
-                n_estimators=100, 
-                max_depth=10, 
-                min_samples_split=100,
-                min_samples_leaf=50,
-                random_state=42,
-                n_jobs=-1
-            ),
+            # 'RandomForest': RandomForestClassifier(
+            #     n_estimators=100, 
+            #     max_depth=10, 
+            #     min_samples_split=100,
+            #     min_samples_leaf=50,
+            #     random_state=42,
+            #     n_jobs=-1
+            # ),
             # 'GradientBoosting': GradientBoostingClassifier(
             #     n_estimators=100,
             #     max_depth=6,
             #     learning_rate=0.1,
             #     random_state=42
             # )
-            # 'HistGradientBoosting': HistGradientBoostingClassifier(
-            #     max_iter=100,         # igual a n_estimators
-            #     max_depth=6,
-            #     learning_rate=0.1,
-            #     random_state=42,
-            #     early_stopping=False  # opcional: desactiva si estás haciendo tu propia validación
-            # )            
+            'HistGradientBoosting': HistGradientBoostingClassifier(
+                max_iter=100,         # igual a n_estimators
+                max_depth=6,
+                learning_rate=0.1,
+                random_state=42,
+                early_stopping=False  # opcional: desactiva si estás haciendo tu propia validación
+            )            
         }
         
         results = {}
@@ -462,16 +462,16 @@ class UTXOStorageClassifier:
         # 1. ONNX Format (Recomendado)
         self._export_to_onnx(f"{base_filepath}.onnx")
         
-        # 2. JSON Format (Alternativa simple)
-        self._export_to_json(f"{base_filepath}.json")
+        # # 2. JSON Format (Alternativa simple)
+        # self._export_to_json(f"{base_filepath}.json")
         
-        # 3. Custom Binary Format (Para máximo rendimiento)
-        self._export_to_binary(f"{base_filepath}.bin")
+        # # 3. Custom Binary Format (Para máximo rendimiento)
+        # self._export_to_binary(f"{base_filepath}.bin")
         
-        # 4. C++ Header (Para embedding directo)
-        self._export_to_cpp_header(f"{base_filepath}_model.h")
+        # # 4. C++ Header (Para embedding directo)
+        # self._export_to_cpp_header(f"{base_filepath}_model.h")
         
-        print("✅ Exportación completa para C++")
+        # print("✅ Exportación completa para C++")
     
     def _export_to_onnx(self, filepath: str):
         """
