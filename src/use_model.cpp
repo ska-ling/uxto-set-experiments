@@ -35,10 +35,21 @@ int main() {
     std::array<int64_t, 2> input_shape{1, static_cast<int64_t>(input_features.size())};
     Ort::AllocatorWithDefaultOptions allocator;
 
+    // Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+    //     allocator, input_features.data(), input_features.size(),
+    //     input_shape.data(), input_shape.size()
+    // );
+
+    Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
+
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-        allocator, input_features.data(), input_features.size(),
-        input_shape.data(), input_shape.size()
+        memory_info,
+        input_features.data(),
+        input_features.size(),
+        input_shape.data(),
+        input_shape.size()
     );
+
 
     const char* input_names[] = {"input"};
     const char* output_names[] = {session.GetOutputName(0, allocator)};
