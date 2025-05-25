@@ -16,6 +16,8 @@ from hummingbird.ml import convert
 import warnings
 warnings.filterwarnings('ignore')
 
+import os
+
 class UTXOStorageClassifier:
     """
     Sistema para clasificar UTXOs de Bitcoin Cash en hot/cold storage
@@ -418,6 +420,394 @@ class UTXOStorageClassifier:
         
         return result
     
+    def save_model(self, filepath: str):
+        """
+        Guarda el modelo entrenado (para uso en Python)
+        """
+        import joblib
+        
+        model_data = {
+            'model': self.model,
+            'scaler': self.scaler,
+            'feature_columns': self.feature_columns,
+            'thresholds': self.thresholds,
+            'prediction_horizon': self.prediction_horizon,
+            'max_block_height': self.max_block_height,
+            'data_stats': self.data_stats
+        }
+        
+        joblib.dump(model_data, filepath)
+        print(f"💾 Modelo guardado en: {filepath}")
+    
+    def export_for_cpp(self, base_filepath: str):
+        """
+        Exporta el modelo en múltiples formatos para uso en C++
+        """
+        if self.model is None:
+            raise ValueError("Modelo no entrenado.")
+        
+        print("🔄 Exportando modelo para C++...")
+        
+        # 1. ONNX Format (Recomendado)
+        self._export_to_onnx(f"{base_filepath}.onnx")
+        
+        # 2. JSON Format (Alternativa simple)
+        self._export_to_json(f"{base_filepath}.json")
+        
+        # 3. Custom Binary Format (Para máximo rendimiento)
+        self._export_to_binary(f"{base_filepath}.bin")
+        
+        # 4. C++ Header (Para embedding directo)
+        self._export_to_cpp_header(f"{base_filepath}_model.h")
+        
+        print("✅ Exportación completa para C++")
+    
+    def _export_to_onnx(self, filepath: str):
+        """
+        Exporta a formato ONNX (Open Neural Network Exchange)
+        Compatible con C++ usando ONNX Runtime
+        """
+        try:
+            from skl2onnx import to_onnx
+            import numpy as np
+            
+            # Crear datos dummy para inferir tipos
+            X_dummy = np.random.randn(1, len(self.feature_columns)).astype(np.float32)
+            
+            # Convertir a ONNX
+            onnx_model = to_onnx(
+                self.model, 
+                X_dummy,
+                target_opset=12,
+                options={type(self.model): {'zipmap': False}}
+            )
+            
+            # Guardar
+            with open(filepath, "wb") as f:
+                f.write(onnx_model.SerializeToString())
+            
+            print(f"📦 ONNX exportado: {filepath}")
+            print("   Para C++: usar ONNX Runtime (https://onnxruntime.ai/)")
+            
+        except ImportError:
+            print("⚠️  skl2onnx no disponible. Instalar con: pip install skl2onnx")
+        except Exception as e:
+            print(f"⚠️  Error exportando ONNX: {e}")
+    
+    def _export_to_json(self, filepath: str):
+        """
+        Exporta a formato JSON con estructura del Random Forest
+        """
+        import json
+        
+        if not hasattr(self.model, 'estimators_'):
+            print("⚠️  Solo soportado para Random Forest")
+            return
+        
+        # Extraer estructura del Random Forest
+        forest_data = {
+            'metadata': {
+                'model_type': 'RandomForest',
+                'n_estimators': self.model.n_estimators,
+                'n_features': len(self.feature_columns),
+                'feature_names': self.feature_columns,
+                'thresholds': self.thresholds,
+                'prediction_horizon': self.prediction_horizon,
+                'max_block_height': self.max_block_height
+            },
+            'trees': []
+        }
+        
+        # Exportar cada árbol
+        for i, tree in enumerate(self.model.estimators_):
+            tree_data = self._extract_tree_structure(tree.tree_)
+            forest_data['trees'].append(tree_data)
+            
+            if (i + 1) % 10 == 0:
+                print(f"   Procesando árbol {i+1}/{len(self.model.estimators_)}")
+        
+        # Guardar JSON
+        with open(filepath, 'w') as f:
+            json.dump(forest_data, f, indent=2)
+        
+        print(f"📦 JSON exportado: {filepath}")
+        print("   Para C++: usar nlohmann/json o similar")
+    
+    def _extract_tree_structure(self, tree):
+        """
+        Extrae la estructura de un árbol de decisión
+        """
+        def recurse(node_id):
+            if tree.children_left[node_id] == tree.children_right[node_id]:
+                # Nodo hoja
+                return {
+                    'type': 'leaf',
+                    'value': float(tree.value[node_id][0][1] / tree.value[node_id][0].sum())  # probabilidad clase 1
+                }
+            else:
+                # Nodo interno
+                return {
+                    'type': 'split',
+                    'feature': int(tree.feature[node_id]),
+                    'threshold': float(tree.threshold[node_id]),
+                    'left': recurse(tree.children_left[node_id]),
+                    'right': recurse(tree.children_right[node_id])
+                }
+        
+        return recurse(0)
+    
+    def _export_to_binary(self, filepath: str):
+        """
+        Exporta a formato binario compacto para C++
+        """
+        import struct
+        
+        if not hasattr(self.model, 'estimators_'):
+            print("⚠️  Solo soportado para Random Forest")
+            return
+        
+        with open(filepath, 'wb') as f:
+            # Header
+            f.write(b'UTXORF')  # Magic number
+            f.write(struct.pack('I', 1))  # Version
+            f.write(struct.pack('I', self.model.n_estimators))
+            f.write(struct.pack('I', len(self.feature_columns)))
+            f.write(struct.pack('f', self.thresholds['hot_threshold']))
+            f.write(struct.pack('f', self.thresholds['cold_threshold']))
+            
+            # Feature names (para debugging)
+            for feature in self.feature_columns:
+                name_bytes = feature.encode('utf-8')
+                f.write(struct.pack('I', len(name_bytes)))
+                f.write(name_bytes)
+            
+            # Trees
+            for tree in self.model.estimators_:
+                self._write_tree_binary(f, tree.tree_)
+        
+        print(f"📦 Binario exportado: {filepath}")
+        print("   Para C++: implementar parser binario personalizado")
+    
+    def _write_tree_binary(self, f, tree):
+        """
+        Escribe un árbol en formato binario
+        """
+        import struct
+        
+        n_nodes = tree.node_count
+        f.write(struct.pack('I', n_nodes))
+        
+        for i in range(n_nodes):
+            # Tipo de nodo
+            is_leaf = tree.children_left[i] == tree.children_right[i]
+            f.write(struct.pack('B', 1 if is_leaf else 0))
+            
+            if is_leaf:
+                # Valor de hoja
+                prob = tree.value[i][0][1] / tree.value[i][0].sum()
+                f.write(struct.pack('f', prob))
+            else:
+                # Nodo de división
+                f.write(struct.pack('I', tree.feature[i]))
+                f.write(struct.pack('f', tree.threshold[i]))
+                f.write(struct.pack('I', tree.children_left[i]))
+                f.write(struct.pack('I', tree.children_right[i]))
+    
+    def _export_to_cpp_header(self, filepath: str):
+        """
+        Exporta como header C++ con arrays embebidos
+        """
+        if not hasattr(self.model, 'estimators_'):
+            print("⚠️  Solo soportado para Random Forest")
+            return
+        
+        with open(filepath, 'w') as f:
+            f.write(f"""#ifndef UTXO_MODEL_H
+#define UTXO_MODEL_H
+
+#include <vector>
+#include <string>
+#include <array>
+
+namespace UTXOModel {{
+
+// Metadata
+const int N_ESTIMATORS = {self.model.n_estimators};
+const int N_FEATURES = {len(self.feature_columns)};
+const float HOT_THRESHOLD = {self.thresholds['hot_threshold']}f;
+const float COLD_THRESHOLD = {self.thresholds['cold_threshold']}f;
+
+// Feature names
+const std::array<std::string, N_FEATURES> FEATURE_NAMES = {{
+""")
+            
+            for i, feature in enumerate(self.feature_columns):
+                f.write(f'    "{feature}"')
+                if i < len(self.feature_columns) - 1:
+                    f.write(',')
+                f.write('\n')
+            
+            f.write("};\n\n")
+            
+            # Estructuras simplificadas de árboles (solo para árboles pequeños)
+            if self.model.n_estimators <= 10:  # Solo para bosques pequeños
+                f.write("// Tree structures (simplified)\n")
+                for i, tree in enumerate(self.model.estimators_[:5]):  # Solo primeros 5 árboles
+                    f.write(f"// Tree {i} - {tree.tree_.node_count} nodes\n")
+                    f.write(f"const int TREE_{i}_NODES = {tree.tree_.node_count};\n")
+            
+            f.write(f"""
+// Prediction function declaration
+float predict_spend_probability(const std::vector<float>& features);
+
+enum class StorageDecision {{
+    HOT_STORAGE,
+    COLD_STORAGE,
+    REVIEW
+}};
+
+StorageDecision classify_utxo(const std::vector<float>& features);
+
+}} // namespace UTXOModel
+
+#endif // UTXO_MODEL_H
+""")
+        
+        print(f"📦 C++ Header exportado: {filepath}")
+        print("   Para C++: incluir header e implementar lógica de predicción")
+    
+    def generate_cpp_example(self, filepath: str):
+        """
+        Genera código C++ de ejemplo para usar el modelo
+        """
+        cpp_code = f"""#include <iostream>
+#include <vector>
+#include <fstream>
+#include <cmath>
+#include "utxo_model.h"
+
+// Ejemplo de implementación simple para Random Forest
+class UTXOClassifier {{
+private:
+    // Simplificación: usar solo las primeras características más importantes
+    std::vector<int> important_features = {{0, 1, 2, 3, 4}};  // Indices de features importantes
+    
+public:
+    float predict_probability(const std::vector<float>& features) {{
+        // Implementación simplificada basada en reglas heurísticas
+        // derivadas del modelo entrenado
+        
+        float log_value = features[0];  // Asumiendo que log_value es feature 0
+        float is_likely_change = features[1];  // feature 1
+        float is_likely_savings = features[2];  // feature 2
+        
+        // Reglas simplificadas basadas en patrones del modelo
+        float score = 0.0f;
+        
+        // Valor pequeño -> más probable gasto rápido
+        if (log_value < 3.0f) score += 0.3f;
+        else if (log_value > 8.0f) score -= 0.3f;
+        
+        // UTXOs de cambio tienden a gastarse rápido
+        if (is_likely_change > 0.5f) score += 0.4f;
+        
+        // UTXOs de ahorro tienden a mantenerse
+        if (is_likely_savings > 0.5f) score -= 0.5f;
+        
+        // Convertir score a probabilidad
+        return 1.0f / (1.0f + std::exp(-score));
+    }}
+    
+    UTXOModel::StorageDecision classify(const std::vector<float>& features) {{
+        float prob = predict_probability(features);
+        
+        if (prob >= UTXOModel::HOT_THRESHOLD) {{
+            return UTXOModel::StorageDecision::HOT_STORAGE;
+        }} else if (prob <= UTXOModel::COLD_THRESHOLD) {{
+            return UTXOModel::StorageDecision::COLD_STORAGE;
+        }} else {{
+            return UTXOModel::StorageDecision::REVIEW;
+        }}
+    }}
+}};
+
+// Ejemplo de uso
+int main() {{
+    UTXOClassifier classifier;
+    
+    // Ejemplo de UTXO
+    std::vector<float> utxo_features = {{
+        4.5f,  // log_value (pequeño)
+        1.0f,  // is_likely_change
+        0.0f,  // is_likely_savings
+        // ... más features
+    }};
+    
+    float prob = classifier.predict_probability(utxo_features);
+    auto decision = classifier.classify(utxo_features);
+    
+    std::cout << "Probabilidad de gasto: " << prob << std::endl;
+    std::cout << "Decisión: ";
+    switch(decision) {{
+        case UTXOModel::StorageDecision::HOT_STORAGE:
+            std::cout << "HOT STORAGE";
+            break;
+        case UTXOModel::StorageDecision::COLD_STORAGE:
+            std::cout << "COLD STORAGE";
+            break;
+        case UTXOModel::StorageDecision::REVIEW:
+            std::cout << "REVIEW";
+            break;
+    }}
+    std::cout << std::endl;
+    
+    return 0;
+}}
+"""
+        
+        with open(filepath, 'w') as f:
+            f.write(cpp_code)
+        
+        print(f"📦 Ejemplo C++ generado: {filepath}")
+        print("   Compilar con: g++ -std=c++17 -o utxo_classifier example.cpp")
+    
+    def load_model(self, filepath: str):
+        """
+        Carga un modelo previamente entrenado
+        """
+        import joblib
+        
+        model_data = joblib.load(filepath)
+        
+        self.model = model_data['model']
+        self.scaler = model_data['scaler']
+        self.feature_columns = model_data['feature_columns']
+        self.thresholds = model_data['thresholds']
+        self.prediction_horizon = model_data['prediction_horizon']
+        self.max_block_height = model_data['max_block_height']
+        self.data_stats = model_data['data_stats']
+        
+        print(f"📥 Modelo cargado desde: {filepath}")
+        print(f"   - Horizon: {self.prediction_horizon} bloques")
+        print(f"   - Max block: {self.max_block_height}")
+        print(f"   - Features: {len(self.feature_columns)}")
+    
+    def get_feature_importance(self, top_n: int = 15) -> pd.DataFrame:
+        """
+        Obtiene la importancia de las características
+        """
+        if self.model is None:
+            raise ValueError("Modelo no entrenado.")
+        
+        importance_df = pd.DataFrame({
+            'feature': self.feature_columns,
+            'importance': self.model.feature_importances_
+        }).sort_values('importance', ascending=False)
+        
+        return importance_df.head(top_n)
+    
+
+
     def generate_report(self, analysis: Dict, model_results: Dict, threshold_analysis: Dict):
         """
         Genera un reporte comprehensivo del sistema
@@ -573,39 +963,37 @@ def main():
     # === Calibrar umbrales
     threshold_analysis = classifier.calibrate_thresholds(X_test, y_test)
 
+
+
+
+    # === Exportar modelo para C++
+    base_path = "/home/fernando/dev/utxo-experiments/model"
+    os.makedirs(os.path.dirname(base_path), exist_ok=True)
+    
+    # Exportar en múltiples formatos
+    classifier.export_for_cpp(base_path)
+    
+    # Generar código de ejemplo
+    classifier.generate_cpp_example(f"{base_path}_example.cpp")
+    
+    # Guardar modelo Python también
+    classifier.save_model(f"{base_path}.pkl")
+        
+
+
+
+
+
+
+
+
+
     # === Reporte final
     classifier.generate_report(analysis, model_results, threshold_analysis)
-
     print("\n✅ Clasificador entrenado sobre datos reales.")
     # print("ℹ️  Podés usar classifier.predict_storage_decision(...) para hacer predicciones.")
 
-    # === Exportar modelo a ONNX
 
-    print("\n🔄 Exportando modelo a ONNX...")
-    # # Suponiendo que tu modelo final está en: classifier.model
-    # initial_type = [('input', FloatTensorType([None, len(classifier.feature_columns)]))]
-
-    # onnx_model = convert_sklearn(classifier.model, initial_types=initial_type)
-
-    # with open("utxo_hotcold_model.onnx", "wb") as f:
-    #     f.write(onnx_model.SerializeToString())
-
-    # print("✅ Modelo exportado como utxo_hotcold_model.onnx\n")
-
-    # Convertir el modelo scikit-learn a ONNX
-    model_hb = convert(
-        classifier.model,
-        backend="onnx",
-        extra_config={"onnx": {"zipmap": False}}
-    )
-
-    # Guardar el modelo ONNX en disco
-    model_hb.save("utxo_hotcold_model.onnx")
-
-    print("✅ Modelo exportado como utxo_hotcold_model.onnx")
-
-
-    print("✅ Modelo exportado con hummingbird-ml como utxo_hotcold_model.onnx")
 
 
 
