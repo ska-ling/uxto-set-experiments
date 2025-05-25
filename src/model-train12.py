@@ -264,27 +264,27 @@ class UTXOStorageClassifier:
         
         # Probar múltiples modelos
         models = {
-            # 'RandomForest': RandomForestClassifier(
-            #     n_estimators=100, 
-            #     max_depth=10, 
-            #     min_samples_split=100,
-            #     min_samples_leaf=50,
-            #     random_state=42,
-            #     n_jobs=-1
-            # ),
+            'RandomForest': RandomForestClassifier(
+                n_estimators=100, 
+                max_depth=10, 
+                min_samples_split=100,
+                min_samples_leaf=50,
+                random_state=42,
+                n_jobs=-1
+            ),
             # 'GradientBoosting': GradientBoostingClassifier(
             #     n_estimators=100,
             #     max_depth=6,
             #     learning_rate=0.1,
             #     random_state=42
             # )
-            'HistGradientBoosting': HistGradientBoostingClassifier(
-                max_iter=100,         # igual a n_estimators
-                max_depth=6,
-                learning_rate=0.1,
-                random_state=42,
-                early_stopping=False  # opcional: desactiva si estás haciendo tu propia validación
-            )            
+            # 'HistGradientBoosting': HistGradientBoostingClassifier(
+            #     max_iter=100,         # igual a n_estimators
+            #     max_depth=6,
+            #     learning_rate=0.1,
+            #     random_state=42,
+            #     early_stopping=False  # opcional: desactiva si estás haciendo tu propia validación
+            # )            
         }
         
         results = {}
