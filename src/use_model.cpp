@@ -52,7 +52,11 @@ int main() {
 
 
     const char* input_names[] = {"input"};
-    const char* output_names[] = {session.GetOutputName(0, allocator)};
+    // const char* output_names[] = {session.GetOutputName(0, allocator)};
+    Ort::AllocatorWithDefaultOptions allocator;
+    Ort::AllocatedStringPtr output_name = session.GetOutputNameAllocated(0, allocator);
+    const char* output_names[] = {output_name.get()};
+
 
     auto output_tensors = session.Run(
         Ort::RunOptions{nullptr}, input_names, &input_tensor, 1, output_names, 1
