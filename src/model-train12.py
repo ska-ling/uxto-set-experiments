@@ -24,8 +24,9 @@ class UTXOStorageClassifier:
     basado en la probabilidad de gasto en los próximos 1000 bloques.
     """
     
-    def __init__(self, prediction_horizon: int = 1000):
+    def __init__(self, prediction_horizon: int = 1000, max_block_height: int = 789999):
         self.prediction_horizon = prediction_horizon
+        self.max_block_height = max_block_height
         self.model = None
         self.scaler = StandardScaler()
         self.feature_columns = []
@@ -935,7 +936,7 @@ def main():
     import glob
 
     # Inicializar clasificador
-    classifier = UTXOStorageClassifier(prediction_horizon=1000)
+    classifier = UTXOStorageClassifier(prediction_horizon=1000, max_block_height=789_999)
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
