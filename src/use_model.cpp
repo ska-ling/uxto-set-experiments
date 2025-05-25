@@ -22,22 +22,25 @@ int main() {
     // === Input features ===
     // Orden exacto según classifier.feature_columns (float32)
     std::vector<float> input_features = {
-        6.3010,   // log_value
-        148.0,    // total_script_size
-        13513.0,  // script_efficiency
-        31.0,     // block_time_proxy
-        0.0,      // is_coinbase
-        4.0,      // block_density
-        0.8,      // value_percentile_in_block
-        1.0,      // is_likely_change
-        0.0,      // is_likely_savings
-        6.3010,   // coinbase_maturity_factor
+        6.3010f,   // log_value
+        148.0f,    // total_script_size
+        13513.0f,  // script_efficiency
+        31.0f,     // block_time_proxy
+        6.0f,      // creation_epoch
+        0.0f,      // is_coinbase
+        4.0f,      // block_density
+        0.8f,      // value_percentile_in_block
+        1.0f,      // is_likely_change
+        0.0f,      // is_likely_savings
+        0.0f,      // coinbase_maturity_factor
 
-        // one-hot value_class_dust, micro, small, medium, large, big, whale
-        0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-
-        // creation_epoch
-        5.0
+        // One-hot: value_class_dust, micro, small, medium, large, whale
+        0.0f,      // value_class_dust
+        0.0f,      // value_class_micro
+        1.0f,      // value_class_small
+        0.0f,      // value_class_medium
+        0.0f,      // value_class_large
+        0.0f       // value_class_whale
     };
 
     std::array<int64_t, 2> input_shape{1, static_cast<int64_t>(input_features.size())};
