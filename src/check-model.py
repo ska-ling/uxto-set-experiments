@@ -1,7 +1,7 @@
 import onnxruntime as ort
 import numpy as np
 
-session = ort.InferenceSession("utxo_hotcold_model.onnx")
+session = ort.InferenceSession("/home/fernando/dev/utxo-experiments/model.onnx")
 input_name = session.get_inputs()[0].name
 
 x = np.array([[
