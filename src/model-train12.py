@@ -950,7 +950,7 @@ def main():
 
     # === Cargar tus archivos parquet
     parquet_dir = "/home/fernando/dev/utxo-experiments/parquet_normalized"
-    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet"))[:1]
+    parquet_files = sorted(glob.glob(f"{parquet_dir}/utxo-history-*.parquet")) #[:1]
 
     # === Cargar y preparar datos
     df = classifier.load_and_prepare_data(parquet_files)
