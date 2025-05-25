@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, Tuple, List
 
-from skl2onnx import convert_sklearn
-from skl2onnx.common.data_types import FloatTensorType
-import onnx
+# from skl2onnx import convert_sklearn
+# from skl2onnx.common.data_types import FloatTensorType
+# import onnx
+from hummingbird.ml import convert
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -581,16 +582,26 @@ def main():
     # === Exportar modelo a ONNX
 
     print("\n🔄 Exportando modelo a ONNX...")
-    # Suponiendo que tu modelo final está en: classifier.model
-    initial_type = [('input', FloatTensorType([None, len(classifier.feature_columns)]))]
+    # # Suponiendo que tu modelo final está en: classifier.model
+    # initial_type = [('input', FloatTensorType([None, len(classifier.feature_columns)]))]
 
-    onnx_model = convert_sklearn(classifier.model, initial_types=initial_type)
+    # onnx_model = convert_sklearn(classifier.model, initial_types=initial_type)
 
-    with open("utxo_hotcold_model.onnx", "wb") as f:
-        f.write(onnx_model.SerializeToString())
+    # with open("utxo_hotcold_model.onnx", "wb") as f:
+    #     f.write(onnx_model.SerializeToString())
 
-    print("✅ Modelo exportado como utxo_hotcold_model.onnx\n")
-    
+    # print("✅ Modelo exportado como utxo_hotcold_model.onnx\n")
+
+
+    # Suponiendo que el mejor modelo está en classifier.model
+    model_hb = convert(classifier.model, backend="onnx", extra_config={"onnx": {"zipmap": False}}, input_shapes=[(1, len(classifier.feature_columns))])
+
+    # Guardar en disco
+    model_hb.save("utxo_hotcold_model.onnx")
+
+    print("✅ Modelo exportado con hummingbird-ml como utxo_hotcold_model.onnx")
+
+
 
     df_resultado = test_model_on_random_utxos(classifier, n_samples=100_000)
     print(f"✅ Resultado de prueba: {len(df_resultado):,} UTXOs procesados.")
