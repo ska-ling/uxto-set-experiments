@@ -620,13 +620,13 @@ private:
         size_t max_retries = 3;
         while (max_retries > 0) {
             try {
-                log_print("Before emplace in DB for Index {}: \n", Index);
+                // log_print("Before emplace in DB for Index {}: \n", Index);
                 auto res = map.emplace(key, utxo_val_t<container_sizes[Index]>{
                     height,
                     value.size(), 
                     {}
                 });
-                log_print("After emplace in DB for Index {}: \n", Index);
+                // log_print("After emplace in DB for Index {}: \n", Index);
                 if (res.second) {
                     // insert took place
                     // std::copy(value.begin(), value.end(), res.first->second.second.begin());
