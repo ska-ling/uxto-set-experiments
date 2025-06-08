@@ -613,7 +613,7 @@ private:
         if (next_load_factor<Index>() >= map.max_load_factor()) {
             log_print("Next load factor {:.2f} exceeds max load factor {:.2f} for container {}\n", 
                       next_load_factor<Index>(), map.max_load_factor(), Index);
-            throw std::exception("Next load factor exceeds max load factor");
+            throw std::out_of_range("Next load factor exceeds max load factor");
         }
 
 
