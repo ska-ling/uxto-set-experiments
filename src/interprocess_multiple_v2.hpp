@@ -295,12 +295,12 @@ public:
                 [](const auto& a, const auto& b) {
                     return a.second.last_used < b.second.last_used;
                 });
-            log_print("file_cache: erasing element from the cache: {}\n", lru->first);
+            // log_print("file_cache: erasing element from the cache: {}\n", lru->first);
             cache_.erase(lru);
         }
         
         // Open new file
-        log_print("file_cache: opening a non-cached file for {}\n", file_path);
+        // log_print("file_cache: opening a non-cached file for {}\n", file_path);
         auto segment = std::make_unique<bip::managed_mapped_file>(
             bip::open_only, file_path.c_str());
             
