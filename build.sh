@@ -1,10 +1,9 @@
-rm -rf build
-rm -rf conan.lock
+# rm -rf build
+# rm -rf conan.lock
 
-
-conan lock create conanfile.py --version="1.0" --update
-conan lock create conanfile.py --version "1.0" --lockfile=conan.lock --lockfile-out=build/conan.lock
-conan install conanfile.py --lockfile=build/conan.lock -of build --build=missing
+# conan lock create conanfile.py --version="1.0" --update
+# conan lock create conanfile.py --version "1.0" --lockfile=conan.lock --lockfile-out=build/conan.lock
+# conan install conanfile.py --lockfile=build/conan.lock -of build --build=missing
 
 cmake --preset conan-release \
          -DCMAKE_VERBOSE_MAKEFILE=ON \

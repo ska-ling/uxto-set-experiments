@@ -21,17 +21,31 @@ message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 
+set(BENCH_PROJECT_NAME bench_utxo_db)
+
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # ---------------------------------------------------------------
 
 add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${BENCH_PROJECT_NAME} src/bench_db.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC node::node)
 target_link_libraries(${PROJECT_NAME} PUBLIC fmt::fmt-header-only)
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${JEMALLOC_LIB})
+
+
+target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC node::node)
+target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC fmt::fmt-header-only)
+# target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC ${JEMALLOC_LIB})
 
 install(TARGETS ${PROJECT_NAME} DESTINATION "."
         RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         )
+
+install(TARGETS ${BENCH_PROJECT_NAME} DESTINATION "."
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+)
