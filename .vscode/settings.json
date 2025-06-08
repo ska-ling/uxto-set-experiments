@@ -44,6 +44,13 @@
         "unordered_map": "cpp",
         "variant": "cpp",
         "vector": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "iostream": "cpp",
+        "complex": "cpp",
+        "__tree": "cpp",
+        "forward_list": "cpp",
+        "regex": "cpp",
+        "set": "cpp",
+        "span": "cpp"
     }
 }
