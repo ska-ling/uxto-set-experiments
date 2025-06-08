@@ -597,19 +597,25 @@ private:
         return float(map.size() + 1) / float(map.bucket_count());
     }
 
+
     template <size_t Index>
         requires (Index < container_sizes.size())
-    bool insert_in_index(utxo_key_t const& key, span_bytes value, uint32_t height) {
+    bool insert_in_index_safe(utxo_key_t const& key, span_bytes value, uint32_t height) {
+        // size_t size = value.size();
+        // if (size > container_sizes[Index]) {
+        //     log_print("Error: value size {} exceeds maximum size for container {} ({})\n", 
+        //               size, Index, container_sizes[Index]);
+        //     throw std::out_of_range("Value size exceeds maximum container size");
+        // }
+
+
         auto& map = container<Index>();
         if (next_load_factor<Index>() >= map.max_load_factor()) {
-            new_version<Index>();
+            log_print("Next load factor {:.2f} exceeds max load factor {:.2f} for container {}\n", 
+                      next_load_factor<Index>(), map.max_load_factor(), Index);
+            throw std::exception("Next load factor exceeds max load factor");
         }
-        size_t size = value.size();
-        if (size > container_sizes[Index]) {
-            log_print("Error: value size {} exceeds maximum size for container {} ({})\n", 
-                      size, Index, container_sizes[Index]);
-            throw std::out_of_range("Value size exceeds maximum container size");
-        }
+
 
         size_t max_retries = 3;
         while (max_retries > 0) {
@@ -647,6 +653,24 @@ private:
         }
         log_print("Failed to insert after 3 retries\n");
         throw boost::interprocess::bad_alloc();
+    }
+
+    template <size_t Index>
+        requires (Index < container_sizes.size())
+    bool insert_in_index(utxo_key_t const& key, span_bytes value, uint32_t height) {
+        size_t size = value.size();
+        if (size > container_sizes[Index]) {
+            log_print("Error: value size {} exceeds maximum size for container {} ({})\n", 
+                      size, Index, container_sizes[Index]);
+            throw std::out_of_range("Value size exceeds maximum container size");
+        }
+
+
+        auto& map = container<Index>();
+        if (next_load_factor<Index>() >= map.max_load_factor()) {
+            new_version<Index>();
+        }
+        return insert_in_index_safe<Index>(key, value, height);
     }
 
     template <size_t... Is>
