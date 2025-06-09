@@ -259,7 +259,9 @@ struct deferred_deletion_entry {
 // File cache - keeping your implementation but cleaner
 class file_cache {
 public:
-    explicit file_cache(size_t max_size = 20) : max_cached_files_(max_size) {}
+    explicit file_cache(size_t max_size = 20) 
+        : max_cached_files_(max_size) 
+    {}
     
     template<size_t Index>
     std::pair<utxo_map<container_sizes[Index]>&, bool> get_or_open_file(std::string const& file_path) {
@@ -311,7 +313,9 @@ public:
         return gets_ > 0 ? float(hits_) / float(gets_) : 0.0f;
     }
     
-    void set_cache_size(size_t new_size) { max_cached_files_ = new_size; }
+    void set_cache_size(size_t new_size) { 
+        max_cached_files_ = new_size; 
+    }
     
 private:
     struct cached_file {
@@ -495,7 +499,7 @@ private:
     
     // Metadata and caching
     std::array<std::vector<file_metadata>, container_sizes.size()> file_metadata_;
-    file_cache file_cache_;
+    file_cache file_cache_(1); // number of cached files
     search_stats search_stats_;
     std::vector<deferred_deletion_entry> deferred_deletions_;
     
