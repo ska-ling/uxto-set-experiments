@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
             log_print("Processed block with {} inputs and {} outputs\n", 
                       to_delete.size(), to_insert.size());
 
-            log_print("deleting inputs...")
+            log_print("deleting inputs...");
             // first, delete the inputs
             for (auto const& [k, v] : to_delete) {
                 db.erase(k, block_height);
