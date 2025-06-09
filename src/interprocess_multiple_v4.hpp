@@ -172,7 +172,9 @@ public:
         search_records.emplace_back(search_record{access_h, insert_h, d, cache, f, op});
     }
     
-    void reset() { search_records.clear(); }
+    void reset() { 
+        search_records.clear(); 
+    }
     
     struct summary {
         size_t total_operations = 0;
@@ -391,9 +393,13 @@ public:
         });
     }
     
+    size_t size() const {
+        return entries_count_;
+    }
+
     // Clean insert interface
     bool insert(utxo_key_t const& key, span_bytes value, uint32_t height) {
-        size_t index = get_index_from_size(value.size());
+        size_t const index = get_index_from_size(value.size());
         if (index >= container_sizes.size()) {
             throw std::out_of_range("Value size too large");
         }
@@ -407,11 +413,13 @@ public:
     size_t erase(utxo_key_t const& key, uint32_t height) {
         // Try current version first
         if (auto res = erase_in_latest_version(key, height); res > 0) {
+            entries_count_ -= res;
             return res;
         }
         
         // Try cached files only
         if (auto res = erase_from_cached_files_only(key, height); res > 0) {
+            entries_count_ -= res;
             return res;
         }
         
@@ -496,6 +504,7 @@ private:
         245759,
         7679
     };
+    size_t entries_count_ = 0; // Total entries across all containers
     
     // Metadata and caching
     std::array<std::vector<file_metadata>, container_sizes.size()> file_metadata_;
@@ -526,6 +535,7 @@ private:
         
         auto [it, inserted] = map.emplace(key, val);
         if (inserted) {
+            ++entries_count_;
             update_metadata_on_insert(Index, current_versions_[Index], key, height);
         }
         

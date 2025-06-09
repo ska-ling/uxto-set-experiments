@@ -52,6 +52,7 @@
         "regex": "cpp",
         "set": "cpp",
         "span": "cpp",
-        "memory": "cpp"
+        "memory": "cpp",
+        "__config": "cpp"
     }
 }

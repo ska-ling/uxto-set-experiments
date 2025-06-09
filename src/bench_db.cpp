@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
 
     log_print("Opening DB ...\n");
     db.configure("utxo_interprocess_multiple", true); 
-    log_print("DB opened ...\n");
+    log_print("DB opened with size: {}\n", db.size());
 
     process(path,
         [&](auto const& tx_hashes, auto&& txs) {
