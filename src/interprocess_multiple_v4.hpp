@@ -531,8 +531,8 @@ private:
     template <size_t Index>
     bool insert_in_index(utxo_key_t const& key, span_bytes value, uint32_t height) {
         // Check if rotation needed
-        if (should_rotate<Index>()) {
-            log_print("Rotating container {} due to load factor\n", Index);
+        if (!can_insert_safely<Index>()) {
+            log_print("Rotating container {} due to safety constraints\n", Index);
             new_version<Index>();
         }
         
@@ -554,18 +554,29 @@ private:
             } catch (boost::interprocess::bad_alloc const& e) {
                 log_print("Error inserting into container {}: {}\n", Index, e.what());
                 log_print("Next load factor: {:.2f}\n", next_load_factor<Index>());
-                log_print("Current size: {}\n", map.size());
-                log_print("Current bucket count: {}\n", map.bucket_count());
-                log_print("Current load factor: {:.2f}\n", map.load_factor());
-                log_print("Current max load factor: {:.2f}\n", map.max_load_factor());
+                log_print("Current size: {}\n", container<Index>().size());
+                log_print("Current bucket count: {}\n", container<Index>().bucket_count());
+                log_print("Current load factor: {:.2f}\n", container<Index>().load_factor());
+                log_print("Current max load factor: {:.2f}\n", container<Index>().max_load_factor());
+                
+                // Try to get memory info
+                if (segments_[Index]) {
+                    try {
+                        size_t free_memory = segments_[Index]->get_free_memory();
+                        log_print("Free memory in segment: {}\n", free_memory);
+                    } catch (...) {
+                        log_print("Cannot determine free memory in segment\n");
+                    }
+                }
                 
                 new_version<Index>();
 
                 log_print("Retrying insert into container {} ...\n", Index);
-                log_print("Current size: {}\n", map.size());
-                log_print("Current bucket count: {}\n", map.bucket_count());
-                log_print("Current load factor: {:.2f}\n", map.load_factor());
-                log_print("Current max load factor: {:.2f}\n", map.max_load_factor());                
+                auto& new_map = container<Index>();
+                log_print("Current size: {}\n", new_map.size());
+                log_print("Current bucket count: {}\n", new_map.bucket_count());
+                log_print("Current load factor: {:.2f}\n", new_map.load_factor());
+                log_print("Current max load factor: {:.2f}\n", new_map.max_load_factor());                
             }    
             --max_retries;            
         }
@@ -577,8 +588,9 @@ private:
     bool should_rotate() const {
         auto const& map = container<Index>();
         if (map.bucket_count() == 0) return false;
-        float next_load = float(map.size() + 1) / float(map.bucket_count());
-        return next_load >= map.max_load_factor();
+        
+        // Use the safer check
+        return !can_insert_safely<Index>();
     }
     
     template <size_t Index>
@@ -833,6 +845,35 @@ private:
             ++version;
         }
         return version > 0 ? version - 1 : 0;
+    }
+    
+    // Helper to check if container can accommodate new insertions
+    template <size_t Index>
+    bool can_insert_safely() const {
+        auto const& map = container<Index>();
+        
+        // Check load factor
+        if (map.bucket_count() > 0) {
+            float next_load = float(map.size() + 1) / float(map.bucket_count());
+            if (next_load >= map.max_load_factor() * 0.95f) {
+                return false;
+            }
+        }
+        
+        // Check available memory
+        if (segments_[Index]) {
+            try {
+                size_t free_memory = segments_[Index]->get_free_memory();
+                size_t entry_size = sizeof(typename utxo_map<container_sizes[Index]>::value_type);
+                size_t buffer_size = entry_size * 10; // Safety buffer for 10 entries
+                
+                return free_memory > buffer_size;
+            } catch (...) {
+                return false; // If we can't check, assume not safe
+            }
+        }
+        
+        return true; // If no segment, assume it's safe (shouldn't happen)
     }
 };
 
