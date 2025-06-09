@@ -191,6 +191,10 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
         for (auto const& tx : transactions) {
             partial_inputs += tx.inputs().size();
             partial_outputs += tx.outputs().size();
+
+            if (tx.is_coinbase()) {
+                --partial_inputs;
+            }
         }
         input_count += partial_inputs;
         output_count += partial_outputs;
