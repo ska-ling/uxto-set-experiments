@@ -51,6 +51,7 @@
         "forward_list": "cpp",
         "regex": "cpp",
         "set": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "memory": "cpp"
     }
 }

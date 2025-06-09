@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
     size_t partial_outputs;
     size_t block_height = 0;
 
-    utxo_db db;
+    utxo::utxo_db db;
 
     log_print("Opening DB ...\n");
     db.configure("utxo_interprocess_multiple", true); 
