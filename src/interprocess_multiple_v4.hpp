@@ -375,6 +375,15 @@ public:
         }
         fs::create_directories(path);
         
+        auto optimal0 = find_optimal_buckets<0>("./optimal", file_sizes[0], 7864304);
+        log_print("Optimal number of buckets for container {} and file size {}: {}\n", 0, file_sizes[0], optimal0);
+        auto optimal1 = find_optimal_buckets<1>("./optimal", file_sizes[1], 7864304);
+        log_print("Optimal number of buckets for container {} and file size {}: {}\n", 1, file_sizes[1], optimal1);
+        auto optimal2 = find_optimal_buckets<2>("./optimal", file_sizes[2], 7864304);
+        log_print("Optimal number of buckets for container {} and file size {}: {}\n", 2, file_sizes[2], optimal2);
+        auto optimal3 = find_optimal_buckets<3>("./optimal", file_sizes[3], 7864304);
+        log_print("Optimal number of buckets for container {} and file size {}: {}\n", 3, file_sizes[3], optimal3);
+
         // Initialize containers
         for_each_index<container_sizes.size()>([&](auto I) {
             size_t latest_version = find_latest_version_from_files(I);
@@ -707,6 +716,49 @@ private:
         return false;
     }
     
+    template <size_t Index>
+        requires (Index < container_sizes.size())
+    size_t find_optimal_buckets(std::string const& file_path, size_t file_size, size_t initial_buckets) {
+        log_print("Finding optimal number of buckets for file: {} (size: {})...\n", file_path, file_size);
+
+        size_t left = 1;
+        size_t right = initial_buckets;
+        size_t best_buckets = left;
+        
+        while (left <= right) {
+            size_t mid = left + (right - left) / 2;
+            log_print("Trying with {} buckets...\n", mid);
+
+            std::string temp_file = fmt::format("{}/temp_{}_{}.dat", file_path, file_size, mid);
+            try {
+                bip::managed_mapped_file segment(bip::open_or_create, temp_file.c_str(), file_size);
+
+                // Intenta crear el mapa con la cantidad de buckets "mid"
+                using temp_map_t = map_t<Index>;
+                auto* map = segment.find_or_construct<temp_map_t>("temp_map")(
+                    mid,
+                    key_hash{},
+                    key_equal{},
+                    segment.get_allocator<std::pair<utxo_key_t const, utxo_val_t<container_sizes[Index]>>>()
+                );
+
+                // Si llega aquí, la cantidad de buckets es válida
+                best_buckets = mid;
+                left = mid + 1;
+                log_print("Buckets {} successful. Increasing range...\n", mid);
+            } catch (boost::interprocess::bad_alloc const& e) {
+                log_print("Failed with {} buckets: {}\n", mid, e.what());
+                right = mid - 1;
+            }
+
+            // Eliminar el archivo temporal en cada intento
+            std::filesystem::remove(temp_file);
+        }
+
+        log_print("Optimal number of buckets: {}\n", best_buckets);
+        return best_buckets;
+    }
+
     // File management
     template<size_t Index>
     void open_or_create_container(size_t version) {
