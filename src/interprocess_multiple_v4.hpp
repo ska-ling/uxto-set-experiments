@@ -510,8 +510,8 @@ private:
     std::array<size_t, container_sizes.size()> min_buckets_ok_ = {
         3932159,
         1966079,
-        245759,
-        7679
+         245759,
+           7679
     };
     size_t entries_count_ = 0; // Total entries across all containers
     
