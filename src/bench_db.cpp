@@ -77,7 +77,7 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
                 log_print("UTXO not found for deletion: ");
                 print_hash(hash);
                 log_print("Input: {}", idx);
-                log_print("Valid: {}\n", prev_out.valid());
+                // log_print("Valid: {}\n", prev_out.valid());
                 
 
                 to_delete.emplace(std::move(key), std::move(input));
