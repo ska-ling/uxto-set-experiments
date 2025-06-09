@@ -155,6 +155,40 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
     return {std::move(transactions), block_from, 0};
 }
 
+#include <fmt/core.h>
+#include <string>
+#include <cmath>
+
+// Formatea un número con sufijos (k, M, B, etc.)
+std::string format_si(uint64_t n) {
+    constexpr const char* suffixes[] = {"", "k", "M", "B", "T"};
+    int i = 0;
+    double num = static_cast<double>(n);
+    while (num >= 1000.0 && i < 4) {
+        num /= 1000.0;
+        ++i;
+    }
+    return fmt::format("{:.3g}{}", num, suffixes[i]);
+}
+
+// Formatea una tasa (como los anteriores pero sin decimales)
+std::string format_si_rate(double n) {
+    constexpr const char* suffixes[] = {"", "k", "M", "B", "T"};
+    int i = 0;
+    while (n >= 1000.0 && i < 4) {
+        n /= 1000.0;
+        ++i;
+    }
+    return fmt::format("{:.0f}{}", n, suffixes[i]);
+}
+
+// Formatea tiempos: "0.2506s (250630422ns)"
+std::string format_time(uint64_t ns) {
+    double seconds = static_cast<double>(ns) / 1'000'000'000.0;
+    return fmt::format("{:.4f}s ({}ns)", seconds, ns);
+}
+
+
 template <typename ProcessTxs, typename PostProcessing>
 void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProcessing post_processing, size_t& total_inputs, size_t& total_outputs, size_t& partial_inputs, size_t& partial_outputs) {
     constexpr size_t file_max = 780'000;            //TODO: hardcoded values
@@ -214,20 +248,38 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
 
         post_processing();
 
-        fmt::print("Partial Transactions: {:7}\n", partial_transactions);
-        fmt::print("Partial Inputs:       {:7}\n", partial_inputs);
-        fmt::print("Partial Outputs:      {:7}\n", partial_outputs);
-        fmt::print("Total Transactions:   {:7}\n", total_transactions);
-        fmt::print("Total Inputs:         {:7}\n", input_count);
-        fmt::print("Total Outputs:        {:7}\n", output_count);
-        fmt::print("Partial Time:         {:7}ns - {:7}ms - {:7}s\n", partial_time, partial_time / 1'000'000, partial_time / 1'000'000'000);
-        fmt::print("Total Time:           {:7}ns - {:7}ms - {:7}s\n", total_time, total_time / 1'000'000, total_time / 1'000'000'000);
-        fmt::print("Partial TXs/sec:      {:010}\n", double(partial_transactions) * 1'000'000'000.0 / partial_time);
-        fmt::print("Partial Inputs/sec:   {:010}\n", double(partial_inputs) * 1'000'000'000.0 / partial_time);
-        fmt::print("Partial Outputs/sec:  {:010}\n", double(partial_outputs) * 1'000'000'000.0 / partial_time);
-        fmt::print("Total TXs/sec:        {:010}\n", double(total_transactions) * 1'000'000'000.0 / total_time);
-        fmt::print("Total Inputs/sec:     {:010}\n", double(input_count) * 1'000'000'000.0 / total_time);
-        fmt::print("Total Outputs/sec:    {:010}\n", double(output_count) * 1'000'000'000.0 / total_time);
+        // fmt::print("Partial Transactions: {:7}\n", partial_transactions);
+        // fmt::print("Partial Inputs:       {:7}\n", partial_inputs);
+        // fmt::print("Partial Outputs:      {:7}\n", partial_outputs);
+        // fmt::print("Total Transactions:   {:7}\n", total_transactions);
+        // fmt::print("Total Inputs:         {:7}\n", input_count);
+        // fmt::print("Total Outputs:        {:7}\n", output_count);
+        // fmt::print("Partial Time:         {:7}ns - {:7}ms - {:7}s\n", partial_time, partial_time / 1'000'000, partial_time / 1'000'000'000);
+        // fmt::print("Total Time:           {:7}ns - {:7}ms - {:7}s\n", total_time, total_time / 1'000'000, total_time / 1'000'000'000);
+        // fmt::print("Partial TXs/sec:      {:010}\n", double(partial_transactions) * 1'000'000'000.0 / partial_time);
+        // fmt::print("Partial Inputs/sec:   {:010}\n", double(partial_inputs) * 1'000'000'000.0 / partial_time);
+        // fmt::print("Partial Outputs/sec:  {:010}\n", double(partial_outputs) * 1'000'000'000.0 / partial_time);
+        // fmt::print("Total TXs/sec:        {:010}\n", double(total_transactions) * 1'000'000'000.0 / total_time);
+        // fmt::print("Total Inputs/sec:     {:010}\n", double(input_count) * 1'000'000'000.0 / total_time);
+        // fmt::print("Total Outputs/sec:    {:010}\n", double(output_count) * 1'000'000'000.0 / total_time);
+
+        fmt::print("Partial Transactions:   {}\n", format_si(partial_transactions));
+        fmt::print("Partial Inputs:         {}\n", format_si(partial_inputs));
+        fmt::print("Partial Outputs:        {}\n", format_si(partial_outputs));
+        fmt::print("Total Transactions:     {}\n", format_si(total_transactions));
+        fmt::print("Total Inputs:           {}\n", format_si(input_count));
+        fmt::print("Total Outputs:          {}\n", format_si(output_count));
+
+        fmt::print("Partial Time:           {}\n", format_time(partial_time));
+        fmt::print("Total Time:             {}\n", format_time(total_time));
+
+        fmt::print("Partial TXs/sec:        {}\n", format_si_rate(double(partial_transactions) * 1e9 / partial_time));
+        fmt::print("Partial Inputs/sec:     {}\n", format_si_rate(double(partial_inputs) * 1e9 / partial_time));
+        fmt::print("Partial Outputs/sec:    {}\n", format_si_rate(double(partial_outputs) * 1e9 / partial_time));
+        fmt::print("Total TXs/sec:          {}\n", format_si_rate(double(total_transactions) * 1e9 / total_time));
+        fmt::print("Total Inputs/sec:       {}\n", format_si_rate(double(input_count) * 1e9 / total_time));
+        fmt::print("Total Outputs/sec:      {}\n", format_si_rate(double(output_count) * 1e9 / total_time));
+
 
         block_from = tmp_block_from;
         tx_from = tmp_tx_from;

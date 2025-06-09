@@ -256,6 +256,15 @@ struct deferred_deletion_entry {
         attempt_count++;
         last_attempt = std::chrono::steady_clock::now();
     }
+    
+    // Equality and hash for use in unordered_flat_set
+    bool operator==(deferred_deletion_entry const& other) const {
+        return key == other.key;
+    }
+    
+    friend std::size_t hash_value(deferred_deletion_entry const& entry) {
+        return boost::hash<utxo_key_t>{}(entry.key);
+    }
 };
 
 // File cache - keeping your implementation but cleaner
@@ -457,6 +466,10 @@ public:
         search_stats_.reset(); 
     }
     
+    size_t deferred_deletions_size() const {
+        return deferred_deletions_.size();
+    }
+
     // Process deferred deletions
     size_t process_pending_deletions(size_t max_to_process = 100) {
         if (deferred_deletions_.empty()) return 0;
@@ -474,24 +487,27 @@ public:
             
             if (!it->should_retry()) {
                 it = deferred_deletions_.erase(it);
-                processed++;
+                ++processed;
                 continue;
             }
+            
+            // Extract entry to modify it
+            auto entry = *it;  // Copy the entry
+            it = deferred_deletions_.erase(it);  // Remove from set
             
             // Try to delete
             bool deleted = false;
             for_each_index<container_sizes.size()>([&](auto I) {
                 if (!deleted) {
-                    deleted = try_delete_deferred<I>(*it);
+                    deleted = try_delete_deferred<I>(entry);  // Now we can modify it
                 }
             });
             
             if (deleted) {
-                successful++;
-                it = deferred_deletions_.erase(it);
+                ++successful;
             } else {
-                it->mark_tried("");
-                ++it;
+                entry.mark_tried("");  // Modify the copy
+                deferred_deletions_.insert(std::move(entry));  // Reinsert modified entry
             }
             processed++;
         }
@@ -519,7 +535,8 @@ private:
     std::array<std::vector<file_metadata>, container_sizes.size()> file_metadata_;
     file_cache file_cache_; // number of cached files. TODO: change
     search_stats search_stats_;
-    std::vector<deferred_deletion_entry> deferred_deletions_;
+    // std::vector<deferred_deletion_entry> deferred_deletions_;
+    boost::unordered_flat_set<deferred_deletion_entry> deferred_deletions_;
     
     // Get container
     template<size_t Index>
@@ -687,14 +704,20 @@ private:
     
     // Deferred deletion helpers
     void add_to_deferred_deletions(utxo_key_t const& key, uint32_t height) {
-        auto it = std::ranges::find_if(deferred_deletions_,
-            [&key](auto const& entry) { return entry.key == key; });
+        // auto it = std::ranges::find_if(deferred_deletions_,
+        //     [&key](auto const& entry) { return entry.key == key; });
         
-        if (it == deferred_deletions_.end()) {
-            deferred_deletions_.emplace_back(key, height);
-            log_print("deferred_deletion: added UTXO for later processing (total: {})\n", 
-                     deferred_deletions_.size());
-        }
+        // if (it == deferred_deletions_.end()) {
+        //     deferred_deletions_.emplace_back(key, height);
+        //     log_print("deferred_deletion: added UTXO for later processing (total: {})\n", 
+        //              deferred_deletions_.size());
+        // }
+
+        // now deferred_deletions_ is an unordered set
+        auto [it, inserted] = deferred_deletions_.emplace(key, height);
+        if (inserted) {
+            log_print("deferred_deletion: added UTXO for later processing (total: {})\n",  deferred_deletions_.size());
+        } 
     }
     
     template<size_t Index>
