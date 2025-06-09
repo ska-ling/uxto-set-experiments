@@ -74,10 +74,10 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
                       // erase the input from the map
             auto const removed = to_insert.erase(key);
             if (removed == 0) {
-                log_print("UTXO not found for deletion: ");
-                print_hash(hash);
-                log_print("Input: {}", idx);
-                // log_print("Valid: {}\n", prev_out.valid());
+                // log_print("UTXO not found for deletion: ");
+                // print_hash(hash);
+                // log_print("Input: {}", idx);
+                // // log_print("Valid: {}\n", prev_out.valid());
                 
 
                 to_delete.emplace(std::move(key), std::move(input));
