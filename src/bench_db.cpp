@@ -9,6 +9,20 @@ using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::cha
 // using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
 using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::input>;
 
+void print_hex(uint8_t const* data, size_t size) {
+    // print data in hex format
+    for (size_t i = 0; i < size; ++i) {
+        fmt::print("{:02x}", data[i]);
+    }
+    fmt::print("\n");
+}
+
+void print_hash(kth::hash_digest hash) {
+    std::reverse(hash.begin(), hash.end()); // reverse the hash to match the expected format
+    print_hex(hash.data(), hash.size());
+}
+
+
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {
     to_insert_utxos_t to_insert;
     // using utxo_key_t = std::array<std::uint8_t, utxo_key_size>;
@@ -38,21 +52,28 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
 
     // remove the inputs
     for (auto const& tx : txs) {
-        auto tx_hash = tx.hash();
-        utxo_key_t key;
-        // copy the transaction hash into the key
-        std::copy(tx_hash.begin(), tx_hash.end(), key.begin());
-
         for (auto&& input : tx.inputs()) {
             auto const& prev_out = input.previous_output();
+            auto const& hash = prev_out.hash();
             auto const idx = prev_out.index();
+
+            utxo_key_t key;
+            // copy the transaction hash into the key
+            std::copy(hash.begin(), hash.end(), key.begin());
+
             // copy the output index into the key
             std::copy(reinterpret_cast<const uint8_t*>(&idx), 
                       reinterpret_cast<const uint8_t*>(&idx) + 4, 
                       key.end() - 4);
-            // erase the input from the map
+
+                      // erase the input from the map
             auto const removed = to_insert.erase(key);
             if (removed == 0) {
+                log_print("UTXO not found for deletion: ");
+                print_hash(hash);
+                log_print("Input: {}", idx);
+                
+
                 to_delete.emplace(std::move(key), std::move(input));
             }
             in_block_utxos += removed;
