@@ -541,6 +541,7 @@ private:
                     ++entries_count_;
                     update_metadata_on_insert(Index, current_versions_[Index], key, height);
                 }
+                return inserted;
             } catch (boost::interprocess::bad_alloc const& e) {
                 log_print("Error inserting into container {}: {}\n", Index, e.what());
                 log_print("Next load factor: {:.2f}\n", next_load_factor<Index>());
@@ -559,8 +560,8 @@ private:
             }    
             --max_retries;            
         }
-        
-        return inserted;
+        log_print("Failed to insert after 3 retries\n");
+        throw boost::interprocess::bad_alloc();
     }
     
     template <size_t Index>
@@ -571,6 +572,16 @@ private:
         return next_load >= map.max_load_factor();
     }
     
+    template <size_t Index>
+        requires (Index < container_sizes.size())
+    float next_load_factor() const {
+        auto& map = container<Index>();
+        if (map.bucket_count() == 0) {
+            return 0.0f;
+        }
+        return float(map.size() + 1) / float(map.bucket_count());
+    }
+
     // Find in latest version
     std::optional<std::vector<uint8_t>> find_in_latest_version(utxo_key_t const& key, uint32_t height) {
         std::optional<std::vector<uint8_t>> result;
