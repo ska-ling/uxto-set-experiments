@@ -56,6 +56,11 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
             auto const& prev_out = input.previous_output();
             auto const& hash = prev_out.hash();
             auto const idx = prev_out.index();
+            // if idx == max_uint32, then the input is invalid
+            if (idx == std::numeric_limits<uint32_t>::max()) {
+                // this is an input of coinbase transaction, which is not valid
+                continue; // skip invalid inputs
+            }
 
             utxo_key_t key;
             // copy the transaction hash into the key
@@ -72,6 +77,7 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
                 log_print("UTXO not found for deletion: ");
                 print_hash(hash);
                 log_print("Input: {}", idx);
+                log_print("Valid: {}\n", prev_out.valid());
                 
 
                 to_delete.emplace(std::move(key), std::move(input));
