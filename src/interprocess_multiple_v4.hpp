@@ -499,7 +499,7 @@ private:
     
     // Metadata and caching
     std::array<std::vector<file_metadata>, container_sizes.size()> file_metadata_;
-    file_cache file_cache_(1); // number of cached files
+    file_cache file_cache_(1); // number of cached files. TODO: change
     search_stats search_stats_;
     std::vector<deferred_deletion_entry> deferred_deletions_;
     
