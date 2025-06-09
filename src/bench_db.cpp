@@ -124,17 +124,23 @@ int main(int argc, char** argv) {
             // log_print("txs.size() = {}\n", txs.size());
             // log_print("do something with txs\n");
 
+            log_print("Processing block with {} transactions...\n", txs.size());
             auto const [
                 to_insert, 
                 to_delete,
                 in_block_utxos_count
             ] = process_in_block(txs);
 
+            log_print("Processed block with {} inputs and {} outputs\n", 
+                      to_delete.size(), to_insert.size());
+
+            log_print("deleting inputs...")
             // first, delete the inputs
             for (auto const& [k, v] : to_delete) {
                 db.erase(k, block_height);
             }
 
+            log_print("Inserting outputs...");
             // then, insert the outputs
             for (auto const& [k, v] : to_insert) {
                 db.insert(k, v.to_data(), block_height);
