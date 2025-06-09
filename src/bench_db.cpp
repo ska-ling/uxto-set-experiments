@@ -131,16 +131,16 @@ int main(int argc, char** argv) {
                 in_block_utxos_count
             ] = process_in_block(txs);
 
-            log_print("Processed block with {} inputs and {} outputs\n", 
-                      to_delete.size(), to_insert.size());
+            log_print("Processed block with {} inputs and {} outputs. Removed in the same block: {}\n", 
+                      to_delete.size(), to_insert.size(), in_block_utxos_count);
 
-            log_print("deleting inputs...");
+            log_print("deleting inputs...\n");
             // first, delete the inputs
             for (auto const& [k, v] : to_delete) {
                 db.erase(k, block_height);
             }
 
-            log_print("Inserting outputs...");
+            log_print("Inserting outputs...\n");
             // then, insert the outputs
             for (auto const& [k, v] : to_insert) {
                 db.insert(k, v.to_data(), block_height);
