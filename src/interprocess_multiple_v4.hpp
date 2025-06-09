@@ -519,30 +519,51 @@ private:
     }
     
     // Insert implementation
-    template<size_t Index>
+    template <size_t Index>
     bool insert_in_index(utxo_key_t const& key, span_bytes value, uint32_t height) {
-        auto& map = container<Index>();
-        
         // Check if rotation needed
         if (should_rotate<Index>()) {
+            log_print("Rotating container {} due to load factor\n", Index);
             new_version<Index>();
         }
+        auto& map = container<Index>();
         
         // Insert
         utxo_value<container_sizes[Index]> val;
         val.block_height = height;
         val.set_data(value);
         
-        auto [it, inserted] = map.emplace(key, val);
-        if (inserted) {
-            ++entries_count_;
-            update_metadata_on_insert(Index, current_versions_[Index], key, height);
+        size_t max_retries = 3;
+        while (max_retries > 0) {
+            try {
+                auto [it, inserted] = map.emplace(key, val);
+                if (inserted) {
+                    ++entries_count_;
+                    update_metadata_on_insert(Index, current_versions_[Index], key, height);
+                }
+            } catch (boost::interprocess::bad_alloc const& e) {
+                log_print("Error inserting into container {}: {}\n", Index, e.what());
+                log_print("Next load factor: {:.2f}\n", next_load_factor<Index>());
+                log_print("Current size: {}\n", map.size());
+                log_print("Current bucket count: {}\n", map.bucket_count());
+                log_print("Current load factor: {:.2f}\n", map.load_factor());
+                log_print("Current max load factor: {:.2f}\n", map.max_load_factor());
+                
+                new_version<Index>();
+
+                log_print("Retrying insert into container {} ...\n", Index);
+                log_print("Current size: {}\n", map.size());
+                log_print("Current bucket count: {}\n", map.bucket_count());
+                log_print("Current load factor: {:.2f}\n", map.load_factor());
+                log_print("Current max load factor: {:.2f}\n", map.max_load_factor());                
+            }    
+            --max_retries;            
         }
         
         return inserted;
     }
     
-    template<size_t Index>
+    template <size_t Index>
     bool should_rotate() const {
         auto const& map = container<Index>();
         if (map.bucket_count() == 0) return false;
