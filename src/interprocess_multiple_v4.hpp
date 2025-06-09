@@ -98,7 +98,7 @@ struct utxo_value {
 };
 
 // Map type
-template<size_t Size>
+template <size_t Size>
 using utxo_map = boost::unordered_flat_map<
     utxo_key_t,
     utxo_value<Size>,
@@ -734,12 +734,12 @@ private:
                 bip::managed_mapped_file segment(bip::open_or_create, temp_file.c_str(), file_size);
 
                 // Intenta crear el mapa con la cantidad de buckets "mid"
-                using temp_map_t = map_t<Index>;
+                using temp_map_t = utxo_map<container_sizes[Index]>;
                 auto* map = segment.find_or_construct<temp_map_t>("temp_map")(
                     mid,
                     key_hash{},
                     key_equal{},
-                    segment.get_allocator<std::pair<utxo_key_t const, utxo_val_t<container_sizes[Index]>>>()
+                    segment.get_allocator<std::pair<utxo_key_t const, utxo_value<container_sizes[Index]>>>()
                 );
 
                 // Si llega aquí, la cantidad de buckets es válida
