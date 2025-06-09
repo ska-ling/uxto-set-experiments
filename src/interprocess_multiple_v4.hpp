@@ -233,29 +233,9 @@ private:
 struct deferred_deletion_entry {
     utxo_key_t key;
     uint32_t height;
-    size_t attempt_count = 0;
-    boost::unordered_flat_set<std::string> tried_files;
-    std::chrono::steady_clock::time_point last_attempt;
-    
-    static constexpr size_t max_attempts = 3;
-    static constexpr auto retry_interval = std::chrono::seconds{5};
     
     deferred_deletion_entry(utxo_key_t const& k, uint32_t h) 
-        : key(k), height(h), last_attempt(std::chrono::steady_clock::now()) {}
-    
-    bool should_retry() const { 
-        return attempt_count < max_attempts; 
-    }
-    
-    bool can_retry_now() const {
-        return std::chrono::steady_clock::now() - last_attempt >= retry_interval;
-    }
-    
-    void mark_tried(std::string const& file_path) {
-        tried_files.insert(file_path);
-        attempt_count++;
-        last_attempt = std::chrono::steady_clock::now();
-    }
+        : key(k), height(h) {}
     
     // Equality and hash for use in unordered_flat_set
     bool operator==(deferred_deletion_entry const& other) const {
@@ -470,49 +450,70 @@ public:
         return deferred_deletions_.size();
     }
 
-    // Process deferred deletions
-    size_t process_pending_deletions(size_t max_to_process = 100) {
+    // Process deferred deletions - new systematic approach
+    size_t process_pending_deletions(size_t max_to_process = SIZE_MAX) {
         if (deferred_deletions_.empty()) return 0;
         
-        size_t processed = 0;
-        size_t successful = 0;
+        size_t successful_deletions = 0;
         
-        for (auto it = deferred_deletions_.begin(); 
-             it != deferred_deletions_.end() && processed < max_to_process;) {
+        // Process each container index systematically
+        for_each_index<container_sizes.size()>([&](auto I) {
+            if (deferred_deletions_.empty()) return; // Early exit if all processed
             
-            if (!it->can_retry_now()) {
-                ++it;
-                continue;
-            }
+            // For this container index, try each version from latest-1 down to 0
+            if (current_versions_[I] == 0) return; // No previous versions to check
             
-            if (!it->should_retry()) {
-                it = deferred_deletions_.erase(it);
-                ++processed;
-                continue;
-            }
-            
-            // Extract entry to modify it
-            auto entry = *it;  // Copy the entry
-            it = deferred_deletions_.erase(it);  // Remove from set
-            
-            // Try to delete
-            bool deleted = false;
-            for_each_index<container_sizes.size()>([&](auto I) {
-                if (!deleted) {
-                    deleted = try_delete_deferred<I>(entry);  // Now we can modify it
+            for (size_t v = current_versions_[I] - 1; v != SIZE_MAX; --v) {
+                if (deferred_deletions_.empty()) return; // Early exit if all processed
+                
+                auto file_name = fmt::format(file_format, db_path_.string(), I.value, v);
+                
+                // Check if file exists
+                if (!fs::exists(file_name)) {
+                    continue;
                 }
-            });
-            
-            if (deleted) {
-                ++successful;
-            } else {
-                entry.mark_tried("");  // Modify the copy
-                deferred_deletions_.insert(std::move(entry));  // Reinsert modified entry
+                
+                try {
+                    log_print("Checking file {} for {} deferred deletions...\n", 
+                             file_name, deferred_deletions_.size());
+                    
+                    // Open the file for this version
+                    auto [map, cache_hit] = file_cache_.get_or_open_file<I>(file_name);
+                    
+                    // Process all deferred deletions against this file
+                    auto it = deferred_deletions_.begin();
+                    while (it != deferred_deletions_.end()) {
+                        // Try to delete from this specific file
+                        auto erased_count = map.erase(it->key);
+                        if (erased_count > 0) {
+                            // Successfully deleted
+                            update_metadata_on_delete(I, v);
+                            size_t depth = current_versions_[I] - v;
+                            search_stats_.add_record(it->height, 0, depth, cache_hit, true, 'e');
+                            
+                            it = deferred_deletions_.erase(it);
+                            ++successful_deletions;
+                            
+                            log_print("Deleted UTXO from file {} (depth {})\n", file_name, depth);
+                        } else {
+                            ++it;
+                        }
+                    }
+                    
+                } catch (std::exception const& e) {
+                    log_print("Error opening file {}: {}\n", file_name, e.what());
+                    // Continue with next file
+                }
             }
-            processed++;
+        });
+        
+        // Log remaining deferred deletions (these UTXOs don't exist)
+        if (!deferred_deletions_.empty()) {
+            log_print("WARNING: {} UTXOs could not be found in any file (likely don't exist)\n", 
+                     deferred_deletions_.size());
         }
         
-        return successful;
+        return successful_deletions;
     }
     
 private:
@@ -704,51 +705,11 @@ private:
     
     // Deferred deletion helpers
     void add_to_deferred_deletions(utxo_key_t const& key, uint32_t height) {
-        // auto it = std::ranges::find_if(deferred_deletions_,
-        //     [&key](auto const& entry) { return entry.key == key; });
-        
-        // if (it == deferred_deletions_.end()) {
-        //     deferred_deletions_.emplace_back(key, height);
-        //     log_print("deferred_deletion: added UTXO for later processing (total: {})\n", 
-        //              deferred_deletions_.size());
-        // }
-
         // now deferred_deletions_ is an unordered set
         auto [it, inserted] = deferred_deletions_.emplace(key, height);
         if (inserted) {
-            log_print("deferred_deletion: added UTXO for later processing (total: {})\n",  deferred_deletions_.size());
+            // log_print("deferred_deletion: added UTXO for later processing (total: {})\n",  deferred_deletions_.size());
         } 
-    }
-    
-    template<size_t Index>
-    bool try_delete_deferred(deferred_deletion_entry& entry) {
-        for (size_t v = current_versions_[Index]; v-- > 0;) {
-            auto file_name = fmt::format(file_format, db_path_.string(), Index, v);
-            
-            if (entry.tried_files.contains(file_name)) continue;
-            
-            // Check metadata
-            if (file_metadata_[Index].size() > v && !file_metadata_[Index][v].key_in_range(entry.key)) {
-                entry.tried_files.insert(file_name);
-                continue;
-            }
-            
-            try {
-                auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(file_name);
-                if (map.erase(entry.key) > 0) {
-                    update_metadata_on_delete(Index, v);
-                    size_t depth = current_versions_[Index] - v;
-                    search_stats_.add_record(entry.height, 0, depth, cache_hit, true, 'e');
-                    return true;
-                }
-            } catch (...) {
-                // Continue to next file
-            }
-            
-            entry.tried_files.insert(file_name);
-        }
-        
-        return false;
     }
     
     template <size_t Index>

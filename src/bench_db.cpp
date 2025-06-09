@@ -168,13 +168,11 @@ int main(int argc, char** argv) {
             }
 
             auto deferred = db.deferred_deletions_size();
-            while (deferred > 0) {
+            if (deferred > 0) {
                 log_print("Processing pending deletions... ({} pending)\n", deferred);
-                db.process_pending_deletions(deferred);
+                auto deleted = db.process_pending_deletions();
                 log_print("Deleted {} entries, {} pending deletions left\n", 
-                          deferred - db.deferred_deletions_size(), db.deferred_deletions_size());
-
-                deferred = db.process_pending_deletions();
+                          deleted, db.deferred_deletions_size());
             }
 
         },
