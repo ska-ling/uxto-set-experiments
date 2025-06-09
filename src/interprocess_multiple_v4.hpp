@@ -535,7 +535,6 @@ private:
             log_print("Rotating container {} due to load factor\n", Index);
             new_version<Index>();
         }
-        auto& map = container<Index>();
         
         // Insert
         utxo_value<container_sizes[Index]> val;
@@ -545,6 +544,7 @@ private:
         size_t max_retries = 3;
         while (max_retries > 0) {
             try {
+                auto& map = container<Index>();
                 auto [it, inserted] = map.emplace(key, val);
                 if (inserted) {
                     ++entries_count_;
