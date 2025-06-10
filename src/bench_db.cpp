@@ -12,6 +12,12 @@ using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::cha
 bool is_op_return(kth::domain::chain::output const& output) {
     auto const& ops = output.script().operations();
     if (ops.empty()) return false;
+
+    for (auto const& op : ops) {
+        // print codes in hex format
+        fmt::print("{:02x} ", int(op.code()));
+    }
+
     return int(ops[0].code()) == 0x6a;
 }
 
