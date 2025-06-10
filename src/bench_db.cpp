@@ -12,7 +12,7 @@ using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::cha
 bool is_op_return(kth::domain::chain::output const& output) {
     auto const& ops = output.script().operations();
     if (ops.empty()) return false;
-    return ops[0].code == 0x6a;
+    return int(ops[0].code()) == 0x6a;
 }
 
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {
@@ -33,7 +33,8 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
 
             if (is_op_return(output)) {
                 // skip OP_RETURN outputs
-                log_print("Skipping OP_RETURN output in transaction {}\n", tx_hash);
+                log_print("Skipping OP_RETURN output in transaction ");
+                print_hash(tx_hash);
                 continue;
             }
 
