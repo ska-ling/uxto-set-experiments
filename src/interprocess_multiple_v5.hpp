@@ -477,7 +477,7 @@ public:
             log_print("insert: Invalid index {} for value size {}. Height: {}\n", index, value.size(), height);
             print_key(key);
             log_print("Bytes: \n");
-            print_bytes(value.data(), value.size());
+            print_hex(value.data(), value.size());
             throw std::out_of_range("Value size too large");
         }
         
