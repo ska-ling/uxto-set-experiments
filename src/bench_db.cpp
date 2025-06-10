@@ -3,24 +3,12 @@
 #include <utxo/common.hpp>
 
 // #include "interprocess_multiple_v2.hpp"
-#include "interprocess_multiple_v4.hpp"
+#include "interprocess_multiple_v5.hpp"
 
 using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::output>;
 // using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
 using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::input>;
 
-void print_hex(uint8_t const* data, size_t size) {
-    // print data in hex format
-    for (size_t i = 0; i < size; ++i) {
-        fmt::print("{:02x}", data[i]);
-    }
-    fmt::print("\n");
-}
-
-void print_hash(kth::hash_digest hash) {
-    std::reverse(hash.begin(), hash.end()); // reverse the hash to match the expected format
-    print_hex(hash.data(), hash.size());
-}
 
 
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {

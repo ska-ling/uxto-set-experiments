@@ -43,6 +43,21 @@ void print_hex(std::vector<uint8_t> const& bytes) {
     fmt::print("\n");
 }
 
+void print_hex(uint8_t const* data, size_t size) {
+    // print data in hex format
+    for (size_t i = 0; i < size; ++i) {
+        fmt::print("{:02x}", data[i]);
+    }
+    fmt::print("\n");
+}
+
+void print_hash(kth::hash_digest hash) {
+    std::reverse(hash.begin(), hash.end()); // reverse the hash to match the expected format
+    print_hex(hash.data(), hash.size());
+}
+
+
+
 std::vector<bytes_t> get_blocks_raw_from_n(std::filesystem::path blocks_filename, size_t from_block, size_t n) {
     std::vector<bytes_t> blocks_raw;
     blocks_raw.reserve(n);
@@ -200,7 +215,7 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     std::uniform_int_distribution<int> dis(500'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(50'000, 100'000); //TODO: hardcoded values
 
-    size_t block_from = 0;
+    size_t block_from = 560000;
     size_t tx_from = 0;
     size_t input_count = 0;
     size_t output_count = 0;
