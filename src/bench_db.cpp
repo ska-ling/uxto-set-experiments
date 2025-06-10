@@ -13,10 +13,13 @@ bool is_op_return(kth::domain::chain::output const& output) {
     auto const& ops = output.script().operations();
     if (ops.empty()) return false;
 
+
+    fmt::print("Operation codes for the output: \n");
     for (auto const& op : ops) {
         // print codes in hex format
         fmt::print("{:02x} ", int(op.code()));
     }
+    fmt::print("\n");
 
     return int(ops[0].code()) == 0x6a;
 }
@@ -33,6 +36,16 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
         utxo_key_t key;
         // copy the transaction hash into the key
         std::copy(tx_hash.begin(), tx_hash.end(), key.begin());
+
+        // 0bd342a7bc6cf3e6ac668a0a46fb4430d2afecc9ed9eee73dfd6c1f04818f516
+
+        if (tx_hash[0] == 0x16 && tx_hash[1] == 0xf5 &&
+            tx_hash[2] == 0x18 && tx_hash[3] == 0x48) {
+            log_print("This is the transaction I want to analyze: ");
+            print_hash(tx_hash);
+        } else {
+            continue;
+        }
 
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
