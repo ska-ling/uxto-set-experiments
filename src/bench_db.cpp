@@ -57,6 +57,8 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
                 continue;
             }
 
+            log_print("Output hex data: {}\n", output.to_string(0));
+
             // copy the output index into the key
             std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
                       reinterpret_cast<const uint8_t*>(&output_index) + 4, 
