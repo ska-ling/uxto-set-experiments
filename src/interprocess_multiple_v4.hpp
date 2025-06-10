@@ -399,6 +399,7 @@ public:
     bool insert(utxo_key_t const& key, span_bytes value, uint32_t height) {
         size_t const index = get_index_from_size(value.size());
         if (index >= container_sizes.size()) {
+            log_print("insert: Invalid index {} for value size {}\n", index, value.size());
             throw std::out_of_range("Value size too large");
         }
         
