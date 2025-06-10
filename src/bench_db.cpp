@@ -9,7 +9,11 @@ using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::cha
 // using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
 using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::input>;
 
-
+bool is_op_return(kth::domain::chain::output const& output) {
+    auto const& ops = output.script().operations();
+    if (ops.empty()) return false;
+    return ops[0].code == 0x6a;
+}
 
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {
     to_insert_utxos_t to_insert;
@@ -26,6 +30,13 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
 
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
+
+            if (is_op_return(output)) {
+                // skip OP_RETURN outputs
+                log_print("Skipping OP_RETURN output in transaction {}\n", tx_hash);
+                continue;
+            }
+
             // copy the output index into the key
             std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
                       reinterpret_cast<const uint8_t*>(&output_index) + 4, 
