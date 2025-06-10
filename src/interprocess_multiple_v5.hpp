@@ -93,7 +93,7 @@ void print_key(utxo_key_t const& key) {
     // the last 4 bytes are the output index, print as integer
     uint32_t output_index = 0;
     std::copy(key.end() - 4, key.end(), reinterpret_cast<uint8_t*>(&output_index));
-    fmt::print("{}", output_index);
+    fmt::print(":{}", output_index);
     fmt::print("\n");
 }
 
@@ -474,7 +474,7 @@ public:
     bool insert(utxo_key_t const& key, span_bytes value, uint32_t height) {
         size_t const index = get_index_from_size(value.size());
         if (index >= IdxN) {
-            log_print("insert: Invalid index {} for value size {}\n", index, value.size());
+            log_print("insert: Invalid index {} for value size {}. Height: {}\n", index, value.size(), height);
             print_key(key);
             throw std::out_of_range("Value size too large");
         }
