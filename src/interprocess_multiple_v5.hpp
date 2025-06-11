@@ -541,7 +541,7 @@ public:
     
     // Process ALL deferred deletions - must complete processing entire queue
     // Returns list of UTXOs that could not be deleted (errors that must be reported)
-    std::vector<utxo_key_t> process_all_pending_deletions() {
+    std::pair<uint32_t, std::vector<utxo_key_t>> process_pending_deletions() {
         if (deferred_deletions_.empty()) return {};
         
         size_t initial_size = deferred_deletions_.size();
@@ -551,7 +551,7 @@ public:
         
         // Phase 1: Process ALL cached files first to maximize cache efficiency
         auto cached_files = file_cache_.get_cached_files();
-        if (!cached_files.empty()) {
+        if ( ! cached_files.empty()) {
             log_print("Phase 1: Processing {} cached files for {} deferred deletions...\n", 
                      cached_files.size(), deferred_deletions_.size());
             
@@ -618,20 +618,12 @@ public:
         log_print("Deferred deletion processing complete: {} successful, {} FAILED (errors)\n", 
                  successful_deletions, failed_deletions.size());
         
-        if (!failed_deletions.empty()) {
+        if ( ! failed_deletions.empty()) {
             log_print("ERROR: {} UTXOs could not be deleted - these are processing errors!\n", 
                      failed_deletions.size());
         }
         
-        return failed_deletions;
-    }
-
-    // Simplified deferred deletion processing (kept for compatibility if needed)
-    size_t process_pending_deletions(size_t max_to_process = SIZE_MAX) {
-        auto failed_deletions = process_all_pending_deletions();
-        // For compatibility, we don't return the failed list here
-        // but the new API should use process_all_pending_deletions() directly
-        return deferred_deletions_.size() > 0 ? 0 : max_to_process;
+        return {pending deletions left, std::move(failed_deletions)};
     }
     
 private:

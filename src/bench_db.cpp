@@ -177,10 +177,11 @@ int main(int argc, char** argv) {
             auto deferred = db.deferred_deletions_size();
             if (deferred > 0) {
                 log_print("Processing pending deletions... ({} pending)\n", deferred);
-                auto deleted = db.process_pending_deletions();
-                log_print("Deleted {} entries, {} pending deletions left\n", 
-                          deleted, db.deferred_deletions_size());
-            }
+                auto {deleted, failed} = db.process_pending_deletions();
+                log_print("Deleted {} entries, {} failed, "
+                          "{} pending deletions left\n", 
+                          deleted.size(), failed.size(), db.deferred_deletions_size()); 
+            } 
 
         },
         [&]() {
