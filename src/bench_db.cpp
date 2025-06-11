@@ -9,11 +9,15 @@ using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::cha
 // using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
 using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::input>;
 
-bool is_op_return(kth::domain::chain::output const& output) {
+bool is_op_return(kth::domain::chain::output const& output, uint32_t height) {
+    if (output.script().bytes().empty()) {
+        log_print("Output script is empty at height {}\n", height);
+        return false; // Empty script is not OP_RETURN
+    }
     return output.script().bytes()[0] == 0x6a; // OP_RETURN
 }
 
-std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {
+std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
 
     size_t skipped_op_return = 0;
     to_insert_utxos_t to_insert;
@@ -31,7 +35,7 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_bloc
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
 
-            if (is_op_return(output)) {
+            if (is_op_return(output, height)) {
                 ++skipped_op_return;
                 // skip OP_RETURN outputs
                 // log_print("Skipping OP_RETURN output in transaction.\n");
@@ -134,7 +138,7 @@ int main(int argc, char** argv) {
     size_t total_outputs;
     size_t partial_inputs;
     size_t partial_outputs;
-    size_t block_height = 0;
+    size_t height = 0;
 
     utxo::utxo_db db;
 
@@ -153,7 +157,7 @@ int main(int argc, char** argv) {
                 to_delete,
                 in_block_utxos_count,
                 skipped_op_return
-            ] = process_in_block(txs);
+            ] = process_in_block(txs, height);
 
             log_print("Processed block with {} inputs and {} outputs. Removed in the same block: {}. Skipped OP_RETURNs: {}\n", 
                       to_delete.size(), to_insert.size(), in_block_utxos_count, skipped_op_return);
@@ -161,13 +165,13 @@ int main(int argc, char** argv) {
             log_print("deleting inputs...\n");
             // first, delete the inputs
             for (auto const& [k, v] : to_delete) {
-                db.erase(k, block_height);
+                db.erase(k, height);
             }
 
             log_print("Inserting outputs...\n");
             // then, insert the outputs
             for (auto const& [k, v] : to_insert) {
-                db.insert(k, v.to_data(), block_height);
+                db.insert(k, v.to_data(), height);
             }
 
             auto deferred = db.deferred_deletions_size();
