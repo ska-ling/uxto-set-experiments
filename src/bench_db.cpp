@@ -13,7 +13,9 @@ bool is_op_return(kth::domain::chain::output const& output) {
     return output.script().bytes()[0] == 0x6a; // OP_RETURN
 }
 
-std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {
+std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs) {
+
+    size_t skipped_op_return = 0;
     to_insert_utxos_t to_insert;
     // using utxo_key_t = std::array<std::uint8_t, utxo_key_size>;
     // the utxo_key_t is 36 bytes, the first 32 bytes are the transaction hash 
@@ -30,8 +32,9 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
         for (auto&& output : tx.outputs()) {
 
             if (is_op_return(output)) {
+                ++skipped_op_return;
                 // skip OP_RETURN outputs
-                log_print("Skipping OP_RETURN output in transaction ");
+                // log_print("Skipping OP_RETURN output in transaction.\n");
                 // print_hash(tx_hash);
                 continue;
             }
@@ -81,7 +84,8 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
     return {
         std::move(to_insert), 
         std::move(to_delete),
-        in_block_utxos
+        in_block_utxos,
+        skipped_op_return
     };
 }
 
@@ -147,11 +151,12 @@ int main(int argc, char** argv) {
             auto const [
                 to_insert, 
                 to_delete,
-                in_block_utxos_count
+                in_block_utxos_count,
+                skipped_op_return
             ] = process_in_block(txs);
 
-            log_print("Processed block with {} inputs and {} outputs. Removed in the same block: {}\n", 
-                      to_delete.size(), to_insert.size(), in_block_utxos_count);
+            log_print("Processed block with {} inputs and {} outputs. Removed in the same block: {}. Skipped OP_RETURNs: {}\n", 
+                      to_delete.size(), to_insert.size(), in_block_utxos_count, skipped_op_return);
 
             log_print("deleting inputs...\n");
             // first, delete the inputs
