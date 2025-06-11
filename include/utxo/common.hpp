@@ -266,21 +266,6 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
 
         post_processing();
 
-        // fmt::print("Partial Transactions: {:7}\n", partial_transactions);
-        // fmt::print("Partial Inputs:       {:7}\n", partial_inputs);
-        // fmt::print("Partial Outputs:      {:7}\n", partial_outputs);
-        // fmt::print("Total Transactions:   {:7}\n", total_transactions);
-        // fmt::print("Total Inputs:         {:7}\n", input_count);
-        // fmt::print("Total Outputs:        {:7}\n", output_count);
-        // fmt::print("Partial Time:         {:7}ns - {:7}ms - {:7}s\n", partial_time, partial_time / 1'000'000, partial_time / 1'000'000'000);
-        // fmt::print("Total Time:           {:7}ns - {:7}ms - {:7}s\n", total_time, total_time / 1'000'000, total_time / 1'000'000'000);
-        // fmt::print("Partial TXs/sec:      {:010}\n", double(partial_transactions) * 1'000'000'000.0 / partial_time);
-        // fmt::print("Partial Inputs/sec:   {:010}\n", double(partial_inputs) * 1'000'000'000.0 / partial_time);
-        // fmt::print("Partial Outputs/sec:  {:010}\n", double(partial_outputs) * 1'000'000'000.0 / partial_time);
-        // fmt::print("Total TXs/sec:        {:010}\n", double(total_transactions) * 1'000'000'000.0 / total_time);
-        // fmt::print("Total Inputs/sec:     {:010}\n", double(input_count) * 1'000'000'000.0 / total_time);
-        // fmt::print("Total Outputs/sec:    {:010}\n", double(output_count) * 1'000'000'000.0 / total_time);
-
         fmt::print("Partial Transactions:   {}\n", format_si(partial_transactions));
         fmt::print("Partial Inputs:         {}\n", format_si(partial_inputs));
         fmt::print("Partial Outputs:        {}\n", format_si(partial_outputs));

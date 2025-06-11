@@ -3,7 +3,7 @@
 #include <utxo/common.hpp>
 
 // #include "interprocess_multiple_v2.hpp"
-#include "interprocess_multiple_v5.hpp"
+#include "interprocess_multiple_v6.hpp"
 
 using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::output>;
 // using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
@@ -177,17 +177,40 @@ int main(int argc, char** argv) {
             auto deferred = db.deferred_deletions_size();
             if (deferred > 0) {
                 log_print("Processing pending deletions... ({} pending)\n", deferred);
-                auto {deleted, failed} = db.process_pending_deletions();
+                auto [deleted, failed] = db.process_pending_deletions();
                 log_print("Deleted {} entries, {} failed, "
                           "{} pending deletions left\n", 
-                          deleted.size(), failed.size(), db.deferred_deletions_size()); 
+                          deleted, failed.size(), db.deferred_deletions_size()); 
             } 
 
         },
         [&]() {
-            // log_print("post processing\n");
+            // Imprimir estadísticas después de cada bloque
+            log_print("\n=== Post-block Statistics ===\n");
+            db.print_statistics();
+            
+            // O si quieres procesar las estadísticas de otra forma:
+            auto stats = db.get_statistics();
+            
+            // Por ejemplo, puedes guardar las estadísticas en un archivo
+            // o hacer análisis específicos
+            
+            // Verificar la salud de la base de datos
+            if (stats.deferred.max_queue_size > 10000) {
+                log_print("WARNING: Deferred deletion queue is getting large!\n");
+            }
+            
+            if (stats.cache_hit_rate < 0.5) {
+                log_print("WARNING: Cache hit rate is low, consider increasing cache size\n");
+            }
+            
+            // Resetear estadísticas de búsqueda si quieres stats por bloque
+            // db.reset_search_stats();
         },
         total_inputs, total_outputs, partial_inputs, partial_outputs);
+
+    log_print("Processing completed.\n");
+    db.print_statistics();
 
     log_print("Closing DB... \n");
     db.close();
