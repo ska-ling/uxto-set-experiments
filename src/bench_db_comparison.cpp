@@ -2,39 +2,24 @@
 
 #include <utxo/common.hpp>
 
-#include <boost/unordered/unordered_flat_map.hpp>
-
-#define DBKIND leveldb
-
-#if defined(DBKIND) && DBKIND == leveldb
-#include "leveldb_v1.hpp"
-using utxo_db = utxo::utxo_db_leveldb;
-#elif defined(DBKIND) && DBKIND == custom
+// Include both implementations
 #include "interprocess_multiple_v6.hpp"
-using utxo_db = utxo::utxo_db;
-#endif 
-
+#include "leveldb_v1.hpp"
 
 using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::output>;
-// using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
 using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::input>;
 
 bool is_op_return(kth::domain::chain::output const& output, uint32_t height) {
     if (output.script().bytes().empty()) {
-        // log_print("Output script is empty at height {}\n", height);
         return false; // Empty script is not OP_RETURN
     }
     return output.script().bytes()[0] == 0x6a; // OP_RETURN
 }
 
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
-
     size_t skipped_op_return = 0;
     to_insert_utxos_t to_insert;
-    // using utxo_key_t = std::array<std::uint8_t, utxo_key_size>;
-    // the utxo_key_t is 36 bytes, the first 32 bytes are the transaction hash 
-    // and the last 4 bytes are the output index
-
+    
     // insert all the outputs
     for (auto const& tx : txs) {
         auto tx_hash = tx.hash();
@@ -44,12 +29,8 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_bloc
 
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
-
             if (is_op_return(output, height)) {
                 ++skipped_op_return;
-                // skip OP_RETURN outputs
-                // log_print("Skipping OP_RETURN output in transaction.\n");
-                // print_hash(tx_hash);
                 continue;
             }
 
@@ -73,7 +54,6 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_bloc
             auto const idx = prev_out.index();
             // if idx == max_uint32, then the input is invalid
             if (idx == std::numeric_limits<uint32_t>::max()) {
-                // this is an input of coinbase transaction, which is not valid
                 continue; // skip invalid inputs
             }
 
@@ -86,7 +66,7 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_bloc
                       reinterpret_cast<const uint8_t*>(&idx) + 4, 
                       key.end() - 4);
 
-                      // erase the input from the map
+            // erase the input from the map
             auto const removed = to_insert.erase(key);
             if (removed == 0) {
                 to_delete.emplace(std::move(key), std::move(input));
@@ -103,13 +83,10 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_bloc
     };
 }
 
-
 std::ofstream log_file;
-
 
 // Initialize the log file
 void init_log_file(const std::string& benchmark_name) {
-    // Create a timestamped filename
     auto now = std::chrono::system_clock::now();
     auto now_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
@@ -120,12 +97,10 @@ void init_log_file(const std::string& benchmark_name) {
     if (!log_file.is_open()) {
         std::cerr << "Failed to open log file: " << ss.str() << std::endl;
     } else {
-        // Format the timestamp as string first
         std::stringstream time_ss;
         time_ss << std::put_time(std::localtime(&now_time_t), "%Y-%m-%d %H:%M:%S");
         std::string timestamp = time_ss.str();
         
-        // Now use the string with log_print
         log_print("Log started at: {}\n", timestamp);
         log_print("Benchmark: {}\n\n", benchmark_name);
     }
@@ -139,28 +114,20 @@ void close_log_file() {
     }
 }
 
-int main(int argc, char** argv) {
-
-    std::string_view const path = "/home/fernando/dev/utxo-experiments/src";
-    init_log_file("bench_db_apple_1");
-
-    size_t total_inputs;
-    size_t total_outputs;
-    size_t partial_inputs;
-    size_t partial_outputs;
+template<typename DB>
+void run_benchmark(DB& db, std::string_view db_name, std::string_view path) {
+    log_print("\n=== Starting {} Benchmark ===\n", db_name);
+    
+    size_t total_inputs = 0;
+    size_t total_outputs = 0;
+    size_t partial_inputs = 0;
+    size_t partial_outputs = 0;
     size_t height = 0;
-
-    utxo_db db;
-
-    log_print("Opening DB ...\n");
-    db.configure("utxo_interprocess_multiple", true); 
-    log_print("DB opened with size: {}\n", db.size());
-
+    
+    auto benchmark_start = std::chrono::high_resolution_clock::now();
+    
     process(path,
         [&](auto const& tx_hashes, auto&& txs) {
-            // log_print("txs.size() = {}\n", txs.size());
-            // log_print("do something with txs\n");
-
             log_print("Processing block with {} transactions...\n", txs.size());
             auto const [
                 to_insert, 
@@ -172,66 +139,123 @@ int main(int argc, char** argv) {
             log_print("Processed block with {} inputs and {} outputs. Removed in the same block: {}. Skipped OP_RETURNs: {}\n", 
                       to_delete.size(), to_insert.size(), in_block_utxos_count, skipped_op_return);
 
-            log_print("deleting inputs...\n");
-            // first, delete the inputs
+            // Timing deletions
+            auto delete_start = std::chrono::high_resolution_clock::now();
             for (auto const& [k, v] : to_delete) {
                 db.erase(k, height);
             }
+            auto delete_end = std::chrono::high_resolution_clock::now();
+            auto delete_time = std::chrono::duration_cast<std::chrono::milliseconds>(delete_end - delete_start);
 
-            log_print("Inserting outputs...\n");
-            // then, insert the outputs
+            // Timing insertions
+            auto insert_start = std::chrono::high_resolution_clock::now();
             for (auto const& [k, v] : to_insert) {
                 db.insert(k, v.to_data(), height);
             }
+            auto insert_end = std::chrono::high_resolution_clock::now();
+            auto insert_time = std::chrono::duration_cast<std::chrono::milliseconds>(insert_end - insert_start);
 
-            auto deferred = db.deferred_deletions_size();
-            if (deferred > 0) {
-                log_print("Processing pending deletions... ({} pending)\n", deferred);
-                auto [deleted, failed] = db.process_pending_deletions();
-                log_print("Deleted {} entries, {} failed, "
-                          "{} pending deletions left\n", 
-                          deleted, failed.size(), db.deferred_deletions_size()); 
-            } 
+            log_print("Delete time: {}ms, Insert time: {}ms\n", delete_time.count(), insert_time.count());
 
+            // Process deferred deletions if supported
+            if constexpr (requires { db.deferred_deletions_size(); }) {
+                auto deferred = db.deferred_deletions_size();
+                if (deferred > 0) {
+                    log_print("Processing pending deletions... ({} pending)\n", deferred);
+                    auto [deleted, failed] = db.process_pending_deletions();
+                    log_print("Deleted {} entries, {} failed, "
+                              "{} pending deletions left\n", 
+                              deleted, failed.size(), db.deferred_deletions_size()); 
+                }
+            }
+
+            ++height;
         },
         [&]() {
-            // Imprimir estadísticas después de cada bloque
-            log_print("\n=== Post-block Statistics ===\n");
+            // Post-processing after each block
+            log_print("\n=== {} Post-block Statistics ===\n", db_name);
             db.print_statistics();
-            
-            // O si quieres procesar las estadísticas de otra forma:
-            auto stats = db.get_statistics();
-            
-            // Por ejemplo, puedes guardar las estadísticas en un archivo
-            // o hacer análisis específicos
-            
-            // // Verificar la salud de la base de datos
-            // if (stats.deferred.max_queue_size > 10000) {
-            //     log_print("WARNING: Deferred deletion queue is getting large!\n");
-            // }
-            
-            // if (stats.cache_hit_rate < 0.5) {
-            //     log_print("WARNING: Cache hit rate is low, consider increasing cache size\n");
-            // }
-            
-            // Resetear estadísticas de búsqueda si quieres stats por bloque
-            // db.reset_search_stats();
         },
         total_inputs, total_outputs, partial_inputs, partial_outputs);
 
-    log_print("Processing completed.\n");
-    db.print_statistics();
+    auto benchmark_end = std::chrono::high_resolution_clock::now();
+    auto total_time = std::chrono::duration_cast<std::chrono::milliseconds>(benchmark_end - benchmark_start);
 
-    log_print("Closing DB... \n");
-    db.close();
-    log_print("DB closed ...\n");
-
+    log_print("\n=== {} Final Results ===\n", db_name);
+    log_print("Total benchmark time: {}ms\n", total_time.count());
     log_print("Total inputs:    {}\n", total_inputs);
     log_print("Total outputs:   {}\n", total_outputs);
     log_print("Partial Inputs:  {:7}\n", partial_inputs);
     log_print("Partial Outputs: {:7}\n", partial_outputs);
+    
+    db.print_statistics();
+    
+    // Database-specific final operations
+    if constexpr (requires { db.get_database_size(); }) {
+        auto db_size = db.get_database_size();
+        log_print("Database size on disk: {} bytes ({:.2f} MB)\n", 
+                  db_size, double(db_size) / (1024.0 * 1024.0));
+    }
+    
+    log_print("=== {} Benchmark Complete ===\n\n", db_name);
+}
 
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <data_path> [db_type]\n";
+        std::cerr << "db_type: 'custom', 'leveldb', or 'both' (default: 'both')\n";
+        return 1;
+    }
+    
+    std::string_view const path = argv[1];
+    std::string_view const db_type = argc >= 3 ? argv[2] : "both";
+    
+    init_log_file("db_comparison");
+    
+    log_print("Database Comparison Benchmark\n");
+    log_print("Data path: {}\n", path);
+    log_print("Database type: {}\n\n", db_type);
+    
+    try {
+        if (db_type == "custom" || db_type == "both") {
+            // Test custom implementation
+            utxo::utxo_db custom_db;
+            log_print("Opening Custom DB...\n");
+            custom_db.configure("utxo_interprocess_multiple_comparison", true);
+            log_print("Custom DB opened with size: {}\n", custom_db.size());
+            
+            run_benchmark(custom_db, "Custom DB", path);
+            
+            log_print("Closing Custom DB...\n");
+            custom_db.close();
+            log_print("Custom DB closed.\n");
+        }
+        
+        if (db_type == "leveldb" || db_type == "both") {
+            // Test LevelDB implementation
+            utxo::utxo_db_leveldb leveldb;
+            log_print("Opening LevelDB...\n");
+            bool success = leveldb.configure("utxo_leveldb_comparison", true);
+            if (!success) {
+                log_print("Failed to open LevelDB. Skipping LevelDB benchmark.\n");
+            } else {
+                log_print("LevelDB opened with size: {}\n", leveldb.size());
+                
+                run_benchmark(leveldb, "LevelDB", path);
+                
+                log_print("Closing LevelDB...\n");
+                leveldb.close();
+                log_print("LevelDB closed.\n");
+            }
+        }
+        
+    } catch (std::exception const& e) {
+        log_print("Error during benchmark: {}\n", e.what());
+        close_log_file();
+        return 1;
+    }
+    
+    log_print("All benchmarks completed successfully.\n");
     close_log_file();
-
     return 0;
 }

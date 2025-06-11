@@ -7,6 +7,7 @@ find_package(node REQUIRED)
 find_package(fmt REQUIRED)
 find_package(absl REQUIRED)
 find_package(Boost REQUIRED)
+find_package(leveldb REQUIRED)
 # find_package(robin-hood-hashing REQUIRED)
 # find_package(robin_hood_hashing REQUIRED)
 find_package(unordered_dense REQUIRED)
@@ -22,21 +23,35 @@ message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 
 
 set(BENCH_PROJECT_NAME bench_utxo_db)
+set(COMPARISON_PROJECT_NAME bench_db_comparison)
+set(TEST_LEVELDB_NAME test_leveldb)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # ---------------------------------------------------------------
 
 add_executable(${PROJECT_NAME} src/main.cpp)
 add_executable(${BENCH_PROJECT_NAME} src/bench_db.cpp)
+add_executable(${COMPARISON_PROJECT_NAME} src/bench_db_comparison.cpp)
+add_executable(${TEST_LEVELDB_NAME} src/test_leveldb.cpp)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC node::node)
 target_link_libraries(${PROJECT_NAME} PUBLIC fmt::fmt-header-only)
+target_link_libraries(${PROJECT_NAME} PUBLIC leveldb::leveldb)
 # target_link_libraries(${PROJECT_NAME} PUBLIC ${JEMALLOC_LIB})
 
 
 target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC node::node)
 target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC fmt::fmt-header-only)
+target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC leveldb::leveldb)
 # target_link_libraries(${BENCH_PROJECT_NAME} PUBLIC ${JEMALLOC_LIB})
+
+target_link_libraries(${COMPARISON_PROJECT_NAME} PUBLIC node::node)
+target_link_libraries(${COMPARISON_PROJECT_NAME} PUBLIC fmt::fmt-header-only)
+target_link_libraries(${COMPARISON_PROJECT_NAME} PUBLIC leveldb::leveldb)
+# target_link_libraries(${COMPARISON_PROJECT_NAME} PUBLIC ${JEMALLOC_LIB})
+
+target_link_libraries(${TEST_LEVELDB_NAME} PUBLIC fmt::fmt-header-only)
+target_link_libraries(${TEST_LEVELDB_NAME} PUBLIC leveldb::leveldb)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION "."
         RUNTIME DESTINATION bin
@@ -45,6 +60,18 @@ install(TARGETS ${PROJECT_NAME} DESTINATION "."
         )
 
 install(TARGETS ${BENCH_PROJECT_NAME} DESTINATION "."
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+)
+
+install(TARGETS ${COMPARISON_PROJECT_NAME} DESTINATION "."
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+)
+
+install(TARGETS ${TEST_LEVELDB_NAME} DESTINATION "."
         RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
