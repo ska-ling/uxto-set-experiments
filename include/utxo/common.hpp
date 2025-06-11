@@ -206,7 +206,7 @@ std::string format_time(uint64_t ns) {
 
 template <typename ProcessTxs, typename PostProcessing>
 void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProcessing post_processing, size_t& total_inputs, size_t& total_outputs, size_t& partial_inputs, size_t& partial_outputs) {
-    constexpr size_t file_max = 780'000;            //TODO: hardcoded values
+    constexpr size_t file_max = 779'999;            //TODO: hardcoded values
     constexpr size_t file_step = 10000;
     constexpr size_t max_blocks = 1000;
 
