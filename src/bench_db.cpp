@@ -26,27 +26,15 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> process_in_block(std::v
         // copy the transaction hash into the key
         std::copy(tx_hash.begin(), tx_hash.end(), key.begin());
 
-        // 0bd342a7bc6cf3e6ac668a0a46fb4430d2afecc9ed9eee73dfd6c1f04818f516
-
-        if (tx_hash[0] == 0x16 && tx_hash[1] == 0xf5 &&
-            tx_hash[2] == 0x18 && tx_hash[3] == 0x48) {
-            log_print("This is the transaction I want to analyze: ");
-            print_hash(tx_hash);
-        } else {
-            continue;
-        }
-
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
 
             if (is_op_return(output)) {
                 // skip OP_RETURN outputs
                 log_print("Skipping OP_RETURN output in transaction ");
-                print_hash(tx_hash);
+                // print_hash(tx_hash);
                 continue;
             }
-
-            log_print("Output hex data: {}\n", output.script().to_string(0));
 
             // copy the output index into the key
             std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
