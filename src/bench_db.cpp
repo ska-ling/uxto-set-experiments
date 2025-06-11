@@ -11,7 +11,7 @@ using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::cha
 
 bool is_op_return(kth::domain::chain::output const& output, uint32_t height) {
     if (output.script().bytes().empty()) {
-        log_print("Output script is empty at height {}\n", height);
+        // log_print("Output script is empty at height {}\n", height);
         return false; // Empty script is not OP_RETURN
     }
     return output.script().bytes()[0] == 0x6a; // OP_RETURN
