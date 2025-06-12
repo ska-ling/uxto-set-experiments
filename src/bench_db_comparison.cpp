@@ -1,6 +1,6 @@
 #include <fmt/core.h>
 
-#include <utxo/common.hpp>
+#include "common.hpp"
 
 // Include both implementations
 #include "interprocess_multiple_v6.hpp"

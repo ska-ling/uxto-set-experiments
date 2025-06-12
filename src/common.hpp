@@ -13,6 +13,7 @@
 #include <kth/domain/chain/input_point.hpp>
 #include <kth/consensus.hpp>
 
+#include "log.hpp"
 
 using bytes_t = std::vector<uint8_t>;
 
@@ -38,17 +39,17 @@ bytes_t hex2vec(char const* src, size_t n) {
 
 void print_hex(std::vector<uint8_t> const& bytes) {
     for (auto byte : bytes) {
-        fmt::print("{:02x}", byte);
+        log_print("{:02x}", byte);
     }
-    fmt::print("\n");
+    log_print("\n");
 }
 
 void print_hex(uint8_t const* data, size_t size) {
     // print data in hex format
     for (size_t i = 0; i < size; ++i) {
-        fmt::print("{:02x}", data[i]);
+        log_print("{:02x}", data[i]);
     }
-    fmt::print("\n");
+    log_print("\n");
 }
 
 void print_hash(kth::hash_digest hash) {
@@ -113,7 +114,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         }
         size_t const current_file_end = std::min(current_file_start + file_step - 1, file_max);
         std::filesystem::path const blocks_file = path / fmt::format("block-raw-{}-{}.csv", current_file_start, current_file_end);
-        fmt::print("Processing file {}\n", blocks_file);
+        log_print("Processing file {}\n", blocks_file);
 
         size_t const blocks_to_read = std::min(remaining(), file_step);
         auto blocks_raw = get_blocks_raw_from_n(blocks_file, current_block_index, blocks_to_read);
@@ -123,14 +124,14 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
             kth::byte_reader reader(block_raw);
             auto blk_exp = kth::domain::chain::block::from_data(reader);
             if (!blk_exp) {
-                fmt::print("Error reading block\n");
+                log_print("Error reading block\n");
                 throw std::runtime_error("Error reading block");
             }
             auto& blk = *blk_exp;
             auto const valid = blk.is_valid();
 
             if ( ! valid) {
-                fmt::print("****** INVALID BLOCK ******\n");
+                log_print("****** INVALID BLOCK ******\n");
             }
 
             auto& txs = blk.transactions();
@@ -140,7 +141,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
             if (start_index >= txs.size()) {
                 // Skip this block if the start index is out of range
                 // This should not happen
-                fmt::print("******** Start index out of range ********\n");
+                log_print("******** Start index out of range ********\n");
                 throw std::runtime_error("Start index out of range");
                 continue;
             }
@@ -154,7 +155,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
                 size_t const next_block_index = global_block_index + (end_index == txs.size() ? 1 : 0);
 
                 blk.reset();
-                fmt::print("(1) Returning transactions_collected: {} - block {} - tx {}\n", transactions.size(), next_block_index, next_tx_index);
+                log_print("(1) Returning transactions_collected: {} - block {} - tx {}\n", transactions.size(), next_block_index, next_tx_index);
                 return {std::move(transactions), next_block_index, next_tx_index};
             }
             blk.reset();
@@ -165,8 +166,8 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         current_block_index = 0;
     }
 
-    fmt::print("Total transactions collected: {}\n", transactions.size());
-    fmt::print("(2) Returning transactions_collected: {} - file: {} - block {} - tx {}\n", transactions.size(), current_file_start, current_block_index, 0);
+    log_print("Total transactions collected: {}\n", transactions.size());
+    log_print("(2) Returning transactions_collected: {} - file: {} - block {} - tx {}\n", transactions.size(), current_file_start, current_block_index, 0);
     return {std::move(transactions), block_from, 0};
 }
 
@@ -227,12 +228,12 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
 
     while (true) {
         size_t const transaction_count = dis(gen);
-        fmt::print("Reading {} real transactions from files ...\n", transaction_count);
+        log_print("Reading {} real transactions from files ...\n", transaction_count);
         auto [transactions, tmp_block_from, tmp_tx_from] = get_n_transactions(path, block_from, tx_from, transaction_count);
-        fmt::print("Processing {} transactions ...\n", transactions.size());
+        log_print("Processing {} transactions ...\n", transactions.size());
 
         if (transactions.empty()) {
-            fmt::print("No more transactions to read\n");
+            log_print("No more transactions to read\n");
             break;
         }
 
@@ -266,30 +267,30 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
 
         post_processing();
 
-        fmt::print("Partial Transactions:   {}\n", format_si(partial_transactions));
-        fmt::print("Partial Inputs:         {}\n", format_si(partial_inputs));
-        fmt::print("Partial Outputs:        {}\n", format_si(partial_outputs));
-        fmt::print("Total Transactions:     {}\n", format_si(total_transactions));
-        fmt::print("Total Inputs:           {}\n", format_si(input_count));
-        fmt::print("Total Outputs:          {}\n", format_si(output_count));
+        log_print("Partial Transactions:   {}\n", format_si(partial_transactions));
+        log_print("Partial Inputs:         {}\n", format_si(partial_inputs));
+        log_print("Partial Outputs:        {}\n", format_si(partial_outputs));
+        log_print("Total Transactions:     {}\n", format_si(total_transactions));
+        log_print("Total Inputs:           {}\n", format_si(input_count));
+        log_print("Total Outputs:          {}\n", format_si(output_count));
 
-        fmt::print("Partial Time:           {}\n", format_time(partial_time));
-        fmt::print("Total Time:             {}\n", format_time(total_time));
+        log_print("Partial Time:           {}\n", format_time(partial_time));
+        log_print("Total Time:             {}\n", format_time(total_time));
 
-        fmt::print("Partial TXs/sec:        {}\n", format_si_rate(double(partial_transactions) * 1e9 / partial_time));
-        fmt::print("Partial Inputs/sec:     {}\n", format_si_rate(double(partial_inputs) * 1e9 / partial_time));
-        fmt::print("Partial Outputs/sec:    {}\n", format_si_rate(double(partial_outputs) * 1e9 / partial_time));
-        fmt::print("Total TXs/sec:          {}\n", format_si_rate(double(total_transactions) * 1e9 / total_time));
-        fmt::print("Total Inputs/sec:       {}\n", format_si_rate(double(input_count) * 1e9 / total_time));
-        fmt::print("Total Outputs/sec:      {}\n", format_si_rate(double(output_count) * 1e9 / total_time));
+        log_print("Partial TXs/sec:        {}\n", format_si_rate(double(partial_transactions) * 1e9 / partial_time));
+        log_print("Partial Inputs/sec:     {}\n", format_si_rate(double(partial_inputs) * 1e9 / partial_time));
+        log_print("Partial Outputs/sec:    {}\n", format_si_rate(double(partial_outputs) * 1e9 / partial_time));
+        log_print("Total TXs/sec:          {}\n", format_si_rate(double(total_transactions) * 1e9 / total_time));
+        log_print("Total Inputs/sec:       {}\n", format_si_rate(double(input_count) * 1e9 / total_time));
+        log_print("Total Outputs/sec:      {}\n", format_si_rate(double(output_count) * 1e9 / total_time));
 
 
         block_from = tmp_block_from;
         tx_from = tmp_tx_from;
     }
-    fmt::print("Total transactions: {}\n", total_transactions);
-    fmt::print("Total inputs:       {}\n", input_count);
-    fmt::print("Total outputs:      {}\n", output_count);
+    log_print("Total transactions: {}\n", total_transactions);
+    log_print("Total inputs:       {}\n", input_count);
+    log_print("Total outputs:      {}\n", output_count);
 }
 
 

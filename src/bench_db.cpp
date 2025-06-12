@@ -1,10 +1,11 @@
 #include <fmt/core.h>
 
-#include <utxo/common.hpp>
+#include "common.hpp"
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
-#define DBKIND leveldb
+// #define DBKIND leveldb
+#define DBKIND custom
 
 #if defined(DBKIND) && DBKIND == leveldb
 #include "leveldb_v1.hpp"

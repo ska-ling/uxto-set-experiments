@@ -88,13 +88,13 @@ using utxo_key_t = std::array<uint8_t, utxo_key_size>;
 void print_key(utxo_key_t const& key) {
     // first 32 bytes are the transaction hash, print in hex reversed
     for (size_t i = 0; i < 32; ++i) {
-        fmt::print("{:02x}", key[31 - i]);
+        log_print("{:02x}", key[31 - i]);
     }   
     // the last 4 bytes are the output index, print as integer
     uint32_t output_index = 0;
     std::copy(key.end() - 4, key.end(), reinterpret_cast<uint8_t*>(&output_index));
-    fmt::print(":{}", output_index);
-    fmt::print("\n");
+    log_print(":{}", output_index);
+    log_print("\n");
 }
 
 using segment_manager_t = bip::managed_mapped_file::segment_manager;
