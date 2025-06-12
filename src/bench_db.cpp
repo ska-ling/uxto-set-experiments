@@ -4,13 +4,14 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
-// #define DBKIND leveldb
-#define DBKIND custom
+#define DBKIND 0    // custom
+// #define DBKIND 1 // leveldb
 
-#if defined(DBKIND) && DBKIND == leveldb
+
+#if defined(DBKIND) && DBKIND == 1
 #include "leveldb_v1.hpp"
 using utxo_db = utxo::utxo_db_leveldb;
-#elif defined(DBKIND) && DBKIND == custom
+#elif defined(DBKIND) && DBKIND == 0
 #include "interprocess_multiple_v6.hpp"
 using utxo_db = utxo::utxo_db;
 #endif 
@@ -192,6 +193,15 @@ int main(int argc, char** argv) {
                 log_print("Deleted {} entries, {} failed, "
                           "{} pending deletions left\n", 
                           deleted, failed.size(), db.deferred_deletions_size()); 
+
+                if (failed.size() > 0) {
+                    log_print("Failed to delete {} entries, these are ERRORS\n", failed.size());
+                    for (auto const& f : failed) {
+                        log_print("Failed to delete: ");
+                        print_key(f);
+                    }
+                    std::terminate(); // or handle the error as needed
+                }
             } 
 
         },
