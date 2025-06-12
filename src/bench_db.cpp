@@ -4,8 +4,8 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
-#define DBKIND 0    // custom
-// #define DBKIND 1 // leveldb
+// #define DBKIND 0    // custom
+#define DBKIND 1 // leveldb
 
 
 #if defined(DBKIND) && DBKIND == 1
@@ -177,7 +177,15 @@ int main(int argc, char** argv) {
             log_print("deleting inputs...\n");
             // first, delete the inputs
             for (auto const& [k, v] : to_delete) {
-                db.erase(k, height);
+                auto res = db.erase(k, height);
+#if DBKIND == 1
+                if (res == 0) {
+                    log_print("Failed to delete input: ");
+                    utxo::print_key(k);
+                    std::terminate(); // or handle the error as needed
+                }
+
+#endif
             }
 
             log_print("Inserting outputs...\n");
