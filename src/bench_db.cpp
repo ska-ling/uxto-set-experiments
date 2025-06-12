@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
                     log_print("Failed to delete {} entries, these are ERRORS\n", failed.size());
                     for (auto const& f : failed) {
                         log_print("Failed to delete: ");
-                        print_key(f);
+                        utxo::print_key(f);
                     }
                     std::terminate(); // or handle the error as needed
                 }
