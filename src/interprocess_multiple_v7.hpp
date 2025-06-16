@@ -50,7 +50,7 @@ inline constexpr std::array<size_t, 4> file_sizes = {
     200_mib,
     100_mib
 };
-inline constexpr size_t index_file_size = 400_mib; // Size for index files
+inline constexpr size_t index_file_size = 800_mib; // Size for index files
 
 // Index pointer structure (64 bits total)
 // - 2 bits: container index (0-3)
@@ -516,12 +516,19 @@ public:
         log_print("Optimal number of buckets for container {} and file size {}: {}\n", 3, file_sizes[3], min_buckets_ok_[3]);
 
         // Find optimal buckets for index
-        index_min_buckets_ok_ = find_optimal_index_buckets("./optimal", index_file_size, 15728608);
+        index_min_buckets_ok_ = find_optimal_index_buckets("./optimal", index_file_size, 7864304);
         log_print("Optimal number of buckets for index and file size {}: {}\n", index_file_size, index_min_buckets_ok_);
 
-        // Initialize index
+        // Initialize index BEFORE containers
         size_t latest_index_version = find_latest_index_version_from_files();
         open_or_create_index(latest_index_version);
+        
+        // Initialize index metadata
+        if (index_metadata_.size() <= latest_index_version) {
+            index_metadata_.resize(latest_index_version + 1);
+            index_metadata_[latest_index_version].version = latest_index_version;
+            index_metadata_[latest_index_version].entry_count = index_->size();
+        }
         
         // Load index metadata
         for (size_t v = 0; v <= latest_index_version; ++v) {
@@ -533,21 +540,16 @@ public:
             size_t latest_version = find_latest_version_from_files(I);
             open_or_create_container<I>(latest_version);
             
-            // Ensure metadata vector is properly sized
+            // Initialize metadata
             if (file_metadata_[I].size() <= latest_version) {
                 file_metadata_[I].resize(latest_version + 1);
+                file_metadata_[I][latest_version].container_index = I;
+                file_metadata_[I][latest_version].version = latest_version;
             }
             
             // Load metadata
             for (size_t v = 0; v <= latest_version; ++v) {
                 load_metadata_from_disk(I, v);
-            }
-            
-            // Initialize current version metadata if it doesn't exist
-            if (file_metadata_[I][latest_version].container_index == 0 && 
-                file_metadata_[I][latest_version].version == 0) {
-                file_metadata_[I][latest_version].container_index = I;
-                file_metadata_[I][latest_version].version = latest_version;
             }
         });
     }
@@ -655,18 +657,9 @@ public:
     void reset_search_stats() { 
         search_stats_.reset(); 
     }
-
-    size_t deferred_deletions_size() const {
-        return 0;
-    }
     
     float get_cache_hit_rate() const {
         return file_cache_.get_hit_rate();
-    }
-
-    std::pair<uint32_t, std::vector<utxo_key_t>> process_pending_deletions() {
-        // This implementation does not use deferred deletions, so return empty
-        return {0, {}};
     }
     
     struct db_statistics {
@@ -810,6 +803,12 @@ private:
     
     // Find in index (searches all index versions from newest to oldest)
     std::optional<index_pointer> find_in_index(utxo_key_t const& key, uint32_t height, char op) {
+        // Ensure index is initialized
+        if (!index_) {
+            log_print("ERROR: Index not initialized in find_in_index!\n");
+            return std::nullopt;
+        }
+        
         // Try current index version first
         if (auto it = index_->find(key); it != index_->end()) {
             search_stats_.add_record(height, 0, 0, false, true, op);
@@ -844,16 +843,21 @@ private:
     // Insert in container
     template <size_t Index>
     bool insert_in_container(utxo_key_t const& key, span_bytes value, uint32_t height) {
+        // Ensure index is initialized
+        if (!index_) {
+            log_print("ERROR: Index not initialized!\n");
+            throw std::runtime_error("Index not initialized");
+        }
+        
         // Check if rotation needed
         if (!can_insert_safely<Index>()) {
             log_print("Rotating container {} due to safety constraints\n", Index);
             new_version<Index>();
         }
         
-        // Ensure metadata vector is properly sized
+        // Ensure metadata is initialized
         if (file_metadata_[Index].size() <= current_versions_[Index]) {
             file_metadata_[Index].resize(current_versions_[Index] + 1);
-            file_metadata_[Index][current_versions_[Index]] = file_metadata{};
             file_metadata_[Index][current_versions_[Index]].container_index = Index;
             file_metadata_[Index][current_versions_[Index]].version = current_versions_[Index];
         }
@@ -983,6 +987,8 @@ private:
     void open_or_create_index(size_t version) {
         auto file_name = fmt::format(index_file_format, db_path_.string(), version);
         
+        log_print("Opening/creating index file: {}\n", file_name);
+        
         index_segment_ = std::make_unique<bip::managed_mapped_file>(
             bip::open_or_create, file_name.c_str(), index_file_size);
         
@@ -993,7 +999,12 @@ private:
             index_segment_->get_allocator<typename index_map_t::value_type>()
         );
         
+        if (!index_) {
+            throw std::runtime_error("Failed to create/open index map");
+        }
+        
         current_index_version_ = version;
+        log_print("Index initialized with {} entries\n", index_->size());
     }
     
     void close_index() {
