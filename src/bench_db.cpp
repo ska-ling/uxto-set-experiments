@@ -13,7 +13,8 @@
 #include "leveldb_v1.hpp"
 using utxo_db = utxo::utxo_db_leveldb;
 #elif defined(DBKIND) && DBKIND == 0
-#include "interprocess_multiple_v8.hpp"
+// #include "interprocess_multiple_v8.hpp"
+#include "interprocess_multiple_v6.hpp"
 using utxo_db = utxo::utxo_db;
 #endif 
 
@@ -54,7 +55,7 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             
             if (is_op_return(output, height)) {
                 ++op_return_outputs_identified;
-                op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
+                // op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
                 // log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
                 // utxo::print_key(current_key); // If needed for debugging
             } else {
