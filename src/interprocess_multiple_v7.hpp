@@ -643,9 +643,18 @@ public:
     void reset_search_stats() { 
         search_stats_.reset(); 
     }
+
+    size_t deferred_deletions_size() const {
+        return 0;
+    }
     
     float get_cache_hit_rate() const {
         return file_cache_.get_hit_rate();
+    }
+
+    std::pair<uint32_t, std::vector<utxo_key_t>> process_pending_deletions() {
+        // This implementation does not use deferred deletions, so return empty
+        return {0, {}};
     }
     
     struct db_statistics {
