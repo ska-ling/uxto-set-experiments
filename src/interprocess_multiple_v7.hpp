@@ -533,9 +533,21 @@ public:
             size_t latest_version = find_latest_version_from_files(I);
             open_or_create_container<I>(latest_version);
             
+            // Ensure metadata vector is properly sized
+            if (file_metadata_[I].size() <= latest_version) {
+                file_metadata_[I].resize(latest_version + 1);
+            }
+            
             // Load metadata
             for (size_t v = 0; v <= latest_version; ++v) {
                 load_metadata_from_disk(I, v);
+            }
+            
+            // Initialize current version metadata if it doesn't exist
+            if (file_metadata_[I][latest_version].container_index == 0 && 
+                file_metadata_[I][latest_version].version == 0) {
+                file_metadata_[I][latest_version].container_index = I;
+                file_metadata_[I][latest_version].version = latest_version;
             }
         });
     }
@@ -836,6 +848,14 @@ private:
         if (!can_insert_safely<Index>()) {
             log_print("Rotating container {} due to safety constraints\n", Index);
             new_version<Index>();
+        }
+        
+        // Ensure metadata vector is properly sized
+        if (file_metadata_[Index].size() <= current_versions_[Index]) {
+            file_metadata_[Index].resize(current_versions_[Index] + 1);
+            file_metadata_[Index][current_versions_[Index]] = file_metadata{};
+            file_metadata_[Index][current_versions_[Index]].container_index = Index;
+            file_metadata_[Index][current_versions_[Index]].version = current_versions_[Index];
         }
         
         // Allocate index for this entry
