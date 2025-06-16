@@ -55,8 +55,8 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             if (is_op_return(output, height)) {
                 ++op_return_outputs_identified;
                 op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
-                log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
-                utxo::print_key(current_key); // If needed for debugging
+                // log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
+                // utxo::print_key(current_key); // If needed for debugging
             } else {
                 to_insert.emplace(std::move(current_key), std::move(output)); // Add to regular inserts
             }
@@ -173,12 +173,12 @@ int main(int argc, char** argv) {
             log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
                       to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
 
-#if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
-            if (!op_returns_to_store.empty()) {
-                log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
-                db.insert_op_returns(op_returns_to_store, height);
-            }
-#endif
+// #if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
+//             if (!op_returns_to_store.empty()) {
+//                 log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
+//                 db.insert_op_returns(op_returns_to_store, height);
+//             }
+// #endif
 
             log_print("deleting inputs...\n");
             // first, delete the inputs

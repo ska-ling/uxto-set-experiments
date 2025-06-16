@@ -502,7 +502,7 @@ public:
         file_cache_ = file_cache(std::string(path));
         
         // Initialize OP_RETURN set
-        open_or_create_op_return_set();
+        // open_or_create_op_return_set();
 
         static_assert(IdxN == 4); // if not, we have to change the following code ...
         min_buckets_ok_[0] = find_optimal_buckets<0>("./optimal", file_sizes[0], 7864304);
@@ -567,8 +567,8 @@ public:
                 ++op_return_stats_.total_inserts;
                 ++op_return_stats_.current_size;
                 // Log insertion: block height and txid (first 32 bytes of key)
-                log_print("OP_RETURN Inserted: Height: {}, Key: ", height);
-                print_key(key); // Assuming print_key logs the key appropriately
+                // log_print("OP_RETURN Inserted: Height: {}, Key: ", height);
+                // print_key(key); // Assuming print_key logs the key appropriately
             }
         }
         // Persist changes if necessary (e.g., if it's a separate file that needs flushing)
@@ -1436,7 +1436,7 @@ private:
         try {
             // For OP_RETURNs, we might not need huge files, adjust size as needed.
             // Let's assume a smaller, but still significant, size for now.
-            size_t op_return_file_size = 100_mib; // Example size, adjust based on expected OP_RETURN volume
+            size_t op_return_file_size = 400_mib; // Example size, adjust based on expected OP_RETURN volume
 
             op_return_segment_ = std::make_unique<bip::managed_mapped_file>(
                 bip::open_or_create, file_path.string().c_str(), op_return_file_size);
