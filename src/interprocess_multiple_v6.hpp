@@ -133,6 +133,14 @@ using utxo_map = boost::unordered_flat_map<
     bip::allocator<std::pair<utxo_key_t const, utxo_value<Size>>, segment_manager_t>
 >;
 
+// OP_RETURN set type
+using op_return_set_t = boost::unordered_flat_set<
+    utxo_key_t,
+    key_hash,
+    key_equal,
+    bip::allocator<utxo_key_t, segment_manager_t>
+>;
+
 // File metadata - keeping your exact structure
 struct file_metadata {
     uint32_t min_block_height = UINT32_MAX;
@@ -412,6 +420,8 @@ private:
 class utxo_db {
     using span_bytes = std::span<uint8_t const>;
     static constexpr auto IdxN = container_sizes.size();
+    static constexpr std::string_view op_return_file_name = "op_return_set.dat";
+    static constexpr std::string_view op_return_metadata_name = "op_return_meta.dat";
 
     template <size_t Index>
         requires (Index < IdxN)
@@ -470,6 +480,14 @@ class utxo_db {
         std::array<size_t, IdxN> wasted_space{};
     };
 
+    // Statistics for OP_RETURN set
+    struct op_return_stats {
+        size_t total_inserts = 0;
+        size_t total_deletes = 0;
+        size_t current_size = 0;
+        size_t failed_deletes = 0; // Should ideally be 0 if logic is correct
+    };
+
 
 public:
     void configure(std::string_view path, bool remove_existing = false) {
@@ -483,6 +501,9 @@ public:
         // Configure file cache with base path
         file_cache_ = file_cache(std::string(path));
         
+        // Initialize OP_RETURN set
+        open_or_create_op_return_set();
+
         static_assert(IdxN == 4); // if not, we have to change the following code ...
         min_buckets_ok_[0] = find_optimal_buckets<0>("./optimal", file_sizes[0], 7864304);
         log_print("Optimal number of buckets for container {} and file size {}: {}\n", 0, file_sizes[0], min_buckets_ok_[0]);
@@ -510,6 +531,7 @@ public:
         for_each_index<IdxN>([&](auto I) {
             close_container<I>();
         });
+        close_op_return_set();
     }
     
     size_t size() const {
@@ -528,8 +550,30 @@ public:
         }
         
         return std::visit([&](auto ic) {
-            return insert_in_index<decltype(ic)::value>(key, value, height);
+            return insert_in_index<ic>(key, value, height);
         }, make_index_variant(index));
+    }
+
+    // Insert OP_RETURN keys
+    void insert_op_returns(boost::unordered_flat_set<utxo_key_t> const& op_return_keys, uint32_t height) {
+        if ( ! op_return_segment_ || ! op_return_set_) {
+            log_print("ERROR: OP_RETURN set not initialized before insert_op_returns.\n");
+            return;
+        }
+
+        for (auto const& key : op_return_keys) {
+            auto [it, success] = op_return_set_->insert(key);
+            if (success) {
+                ++op_return_stats_.total_inserts;
+                ++op_return_stats_.current_size;
+                // Log insertion: block height and txid (first 32 bytes of key)
+                log_print("OP_RETURN Inserted: Height: {}, Key: ", height);
+                print_key(key); // Assuming print_key logs the key appropriately
+            }
+        }
+        // Persist changes if necessary (e.g., if it's a separate file that needs flushing)
+        // For managed_mapped_file, changes are generally persisted on unmap or flush.
+        // Consider adding a periodic flush or flush on close for op_return_segment_ if needed.
     }
     
     // Clean erase interface with deferred deletion
@@ -547,6 +591,19 @@ public:
         if (auto res = erase_from_cached_files_only(key, height, search_depth); res > 0) {
             entries_count_ -= res;
             return res;
+        }
+
+        // Check OP_RETURN set if not found in regular UTXO stores
+        if (op_return_set_ && op_return_set_->count(key)) {
+            if (op_return_set_->erase(key)) {
+                ++op_return_stats_.total_deletes;
+                --op_return_stats_.current_size;
+                log_print("OP_RETURN Erased: Height: {}, Key: ", height);
+                print_key(key);
+                // Record this as a special type of find/erase if necessary for stats
+                // For now, just returning 1 to indicate it was handled.
+                return 1; 
+            }
         }
         
         // Track not found
@@ -734,6 +791,9 @@ public:
         
         // Fragmentation stats
         fragmentation_stats fragmentation;
+
+        // OP_RETURN stats
+        op_return_stats op_return; // Add this
     };
     
     db_statistics get_statistics() {
@@ -755,18 +815,17 @@ public:
         // Fill container stats
         for (size_t i = 0; i < IdxN; ++i) {
             stats.containers[i] = container_stats_[i];
-            stats.containers[i].current_size = get_container_size(i);
-            stats.rotations_per_container[i] = current_versions_[i];
-            stats.memory_usage_per_container[i] = estimate_memory_usage(i);
-            
             stats.total_inserts += container_stats_[i].total_inserts;
             stats.total_deletes += container_stats_[i].total_deletes;
+            stats.rotations_per_container[i] = current_versions_[i]; // Assuming current_version is #rotations
+            stats.memory_usage_per_container[i] = estimate_memory_usage(i);
         }
         
         stats.deferred = deferred_stats_;
         stats.not_found = not_found_stats_;
         stats.lifetime = lifetime_stats_;
         stats.fragmentation = fragmentation_stats_;
+        stats.op_return = op_return_stats_; // Add this
         
         return stats;
     }
@@ -880,6 +939,12 @@ public:
         log_print("Average UTXO age: {:.2f} blocks\n", stats.search_summary.avg_utxo_age);
         log_print("Cache hit rate (when depth > 0): {:.2f}%\n", stats.search_summary.cache_hit_rate * 100);
         
+        log_print("\n--- OP_RETURN Set Statistics ---\n");
+        log_print("Total OP_RETURNs inserted: {}\n", stats.op_return.total_inserts);
+        log_print("Total OP_RETURNs deleted: {}\n", stats.op_return.total_deletes);
+        log_print("Current OP_RETURNs size: {}\n", stats.op_return.current_size);
+        log_print("Failed OP_RETURN deletes: {}\n", stats.op_return.failed_deletes);
+
         log_print("\n================================\n");
     }
     
@@ -892,6 +957,7 @@ public:
         not_found_stats_ = not_found_stats{};
         lifetime_stats_ = utxo_lifetime_stats{};
         fragmentation_stats_ = fragmentation_stats{};
+        op_return_stats_ = op_return_stats{}; // Add this
         reset_search_stats();
     }    
 
@@ -919,6 +985,10 @@ private:
     search_stats search_stats_;
     boost::unordered_flat_set<deferred_deletion_entry> deferred_deletions_;
     
+    // OP_RETURN set storage
+    std::unique_ptr<bip::managed_mapped_file> op_return_segment_;
+    op_return_set_t* op_return_set_ = nullptr;
+    file_metadata op_return_metadata_;
 
 
 
@@ -928,6 +998,9 @@ private:
     not_found_stats not_found_stats_;
     utxo_lifetime_stats lifetime_stats_;
     fragmentation_stats fragmentation_stats_;
+
+    // OP_RETURN statistics member
+    op_return_stats op_return_stats_;
 
 
     // Get container
@@ -1317,8 +1390,16 @@ private:
     template <size_t Index>
     void new_version() {
         close_container<Index>();
-        current_versions_[Index]++;
+        ++current_versions_[Index];
+        // Reset metadata for the new version or load if it exists (though typically new means empty)
+        if (file_metadata_[Index].size() <= current_versions_[Index]) {
+            file_metadata_[Index].resize(current_versions_[Index] + 1);
+        }
+        file_metadata_[Index][current_versions_[Index]] = file_metadata{}; // Reset for new version
+        
         open_or_create_container<Index>(current_versions_[Index]);
+        log_print("Container {} rotated to version {}\n", Index, current_versions_[Index]);
+        // Note: OP_RETURN set does not version in this design, it's a single persistent set.
     }
     
     // Metadata management
@@ -1343,6 +1424,53 @@ private:
     void load_metadata_from_disk(size_t index, size_t version) {
         auto metadata_file = fmt::format("{}/meta_{}_{:05}.dat", db_path_.string(), index, version);
         // ... load implementation
+        // TODO: Implement actual loading from disk for file_metadata_[index][version]
+    }
+
+    // OP_RETURN set file management
+    void open_or_create_op_return_set() {
+        auto file_path = db_path_ / op_return_file_name;
+        auto metadata_path = db_path_ / op_return_metadata_name;
+        bool new_file = !fs::exists(file_path);
+
+        try {
+            // For OP_RETURNs, we might not need huge files, adjust size as needed.
+            // Let's assume a smaller, but still significant, size for now.
+            size_t op_return_file_size = 100_mib; // Example size, adjust based on expected OP_RETURN volume
+
+            op_return_segment_ = std::make_unique<bip::managed_mapped_file>(
+                bip::open_or_create, file_path.string().c_str(), op_return_file_size);
+
+            if (new_file) {
+                op_return_set_ = op_return_segment_->construct<op_return_set_t>("OPReturnSet")(
+                    op_return_segment_->get_segment_manager());
+                op_return_metadata_ = file_metadata{}; // Reset metadata
+                log_print("Created new OP_RETURN set file: {}\n", file_path.string());
+            } else {
+                op_return_set_ = op_return_segment_->find_or_construct<op_return_set_t>("OPReturnSet")(
+                    op_return_segment_->get_segment_manager());
+                // Load metadata for OP_RETURN set
+                // load_op_return_metadata(); // You'll need to implement this
+                log_print("Opened existing OP_RETURN set file: {}\n", file_path.string());
+            }
+            op_return_stats_.current_size = op_return_set_ ? op_return_set_->size() : 0;
+        } catch (bip::interprocess_exception const& e) {
+            log_print("ERROR: Failed to open or create OP_RETURN set file {}: {}\n", file_path.string(), e.what());
+            op_return_segment_.reset();
+            op_return_set_ = nullptr;
+            // Potentially rethrow or handle more gracefully
+            throw;
+        }
+    }
+
+    void close_op_return_set() {
+        if (op_return_segment_) {
+            // save_op_return_metadata(); // You'll need to implement this
+            // bip::managed_mapped_file::flush(*op_return_segment_); // Optional: ensure data is written
+            op_return_segment_.reset(); // This will unmap and close the file
+            op_return_set_ = nullptr;
+            log_print("Closed OP_RETURN set file.\n");
+        }
     }
     
     // Utilities

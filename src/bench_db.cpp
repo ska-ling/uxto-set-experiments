@@ -3,9 +3,10 @@
 #include "common.hpp"
 
 #include <boost/unordered/unordered_flat_map.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 
-// #define DBKIND 0    // custom
-#define DBKIND 1 // leveldb
+#define DBKIND 0    // custom
+// #define DBKIND 1 // leveldb
 
 
 #if defined(DBKIND) && DBKIND == 1
@@ -20,6 +21,7 @@ using utxo_db = utxo::utxo_db;
 using to_insert_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::output>;
 // using to_insert_utxos_t = std::vector<std::pain<utxo_key_t, kth::domain::chain::output>>;
 using to_delete_utxos_t = boost::unordered_flat_map<utxo_key_t, kth::domain::chain::input>;
+using op_return_utxos_t = boost::unordered_flat_set<utxo_key_t>; // New type for OP_RETURN UTXOs
 
 bool is_op_return(kth::domain::chain::output const& output, uint32_t height) {
     if (output.script().bytes().empty()) {
@@ -29,38 +31,36 @@ bool is_op_return(kth::domain::chain::output const& output, uint32_t height) {
     return output.script().bytes()[0] == 0x6a; // OP_RETURN
 }
 
-std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
+// Modified return type
+std::tuple<to_insert_utxos_t, to_delete_utxos_t, op_return_utxos_t, size_t, size_t> 
+process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
 
-    size_t skipped_op_return = 0;
+    size_t op_return_outputs_identified = 0;
     to_insert_utxos_t to_insert;
-    // using utxo_key_t = std::array<std::uint8_t, utxo_key_size>;
-    // the utxo_key_t is 36 bytes, the first 32 bytes are the transaction hash 
-    // and the last 4 bytes are the output index
+    op_return_utxos_t op_returns_to_store; // Set for OP_RETURN UTXO keys
 
     // insert all the outputs
     for (auto const& tx : txs) {
         auto tx_hash = tx.hash();
-        utxo_key_t key;
-        // copy the transaction hash into the key
-        std::copy(tx_hash.begin(), tx_hash.end(), key.begin());
+        utxo_key_t current_key; 
+        std::copy(tx_hash.begin(), tx_hash.end(), current_key.begin());
 
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
-
-            if (is_op_return(output, height)) {
-                ++skipped_op_return;
-                // skip OP_RETURN outputs
-                // log_print("Skipping OP_RETURN output in transaction.\n");
-                // print_hash(tx_hash);
-                continue;
-            }
-
             // copy the output index into the key
             std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
                       reinterpret_cast<const uint8_t*>(&output_index) + 4, 
-                      key.end() - 4);
+                      current_key.end() - 4);
+            
+            if (is_op_return(output, height)) {
+                ++op_return_outputs_identified;
+                op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
+                log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
+                utxo::print_key(current_key); // If needed for debugging
+            } else {
+                to_insert.emplace(std::move(current_key), std::move(output)); // Add to regular inserts
+            }
             ++output_index;
-            to_insert.emplace(std::move(key), std::move(output));
         }
     }
 
@@ -73,35 +73,33 @@ std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t, size_t> process_in_bloc
             auto const& prev_out = input.previous_output();
             auto const& hash = prev_out.hash();
             auto const idx = prev_out.index();
-            // if idx == max_uint32, then the input is invalid
             if (idx == std::numeric_limits<uint32_t>::max()) {
-                // this is an input of coinbase transaction, which is not valid
-                continue; // skip invalid inputs
+                continue; 
             }
 
-            utxo_key_t key;
-            // copy the transaction hash into the key
-            std::copy(hash.begin(), hash.end(), key.begin());
-
-            // copy the output index into the key
+            utxo_key_t key_to_remove;
+            std::copy(hash.begin(), hash.end(), key_to_remove.begin());
             std::copy(reinterpret_cast<const uint8_t*>(&idx), 
                       reinterpret_cast<const uint8_t*>(&idx) + 4, 
-                      key.end() - 4);
+                      key_to_remove.end() - 4);
 
-                      // erase the input from the map
-            auto const removed = to_insert.erase(key);
+            auto const removed = to_insert.erase(key_to_remove);
             if (removed == 0) {
-                to_delete.emplace(std::move(key), std::move(input));
+                // Not spent from this block's new outputs, so add to external deletes.
+                // The DB will check if it's an OP_RETURN or a regular UTXO.
+                to_delete.emplace(std::move(key_to_remove), std::move(input));
+            } else {
+                in_block_utxos += removed;
             }
-            in_block_utxos += removed;
         }
     }
 
     return {
         std::move(to_insert), 
         std::move(to_delete),
+        std::move(op_returns_to_store), // Return the new set
         in_block_utxos,
-        skipped_op_return
+        op_return_outputs_identified
     };
 }
 
@@ -167,12 +165,20 @@ int main(int argc, char** argv) {
             auto const [
                 to_insert, 
                 to_delete,
+                op_returns_to_store, // Receive the new set
                 in_block_utxos_count,
-                skipped_op_return
+                op_return_outputs_count // Renamed from skipped_op_return
             ] = process_in_block(txs, height);
 
-            log_print("Processed block with {} inputs and {} outputs. Removed in the same block: {}. Skipped OP_RETURNs: {}\n", 
-                      to_delete.size(), to_insert.size(), in_block_utxos_count, skipped_op_return);
+            log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
+                      to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
+
+#if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
+            if (!op_returns_to_store.empty()) {
+                log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
+                db.insert_op_returns(op_returns_to_store, height);
+            }
+#endif
 
             log_print("deleting inputs...\n");
             // first, delete the inputs
