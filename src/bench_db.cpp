@@ -13,7 +13,7 @@
 #include "leveldb_v1.hpp"
 using utxo_db = utxo::utxo_db_leveldb;
 #elif defined(DBKIND) && DBKIND == 0
-#include "interprocess_multiple_v7.hpp"
+#include "interprocess_multiple_v8.hpp"
 using utxo_db = utxo::utxo_db;
 #endif 
 
