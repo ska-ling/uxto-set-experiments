@@ -13,7 +13,7 @@
 #include "leveldb_v1.hpp"
 using utxo_db = utxo::utxo_db_leveldb;
 #elif defined(DBKIND) && DBKIND == 0
-#include "interprocess_multiple_v6.hpp"
+#include "interprocess_multiple_v7.hpp"
 using utxo_db = utxo::utxo_db;
 #endif 
 
@@ -173,12 +173,12 @@ int main(int argc, char** argv) {
             log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
                       to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
 
-// #if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
-//             if (!op_returns_to_store.empty()) {
-//                 log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
-//                 db.insert_op_returns(op_returns_to_store, height);
-//             }
-// #endif
+#if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
+            if ( ! op_returns_to_store.empty()) {
+                log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
+                // db.insert_op_returns(op_returns_to_store, height);
+            }
+#endif
 
             log_print("deleting inputs...\n");
             // first, delete the inputs

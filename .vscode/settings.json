@@ -53,6 +53,7 @@
         "set": "cpp",
         "span": "cpp",
         "memory": "cpp",
-        "__config": "cpp"
+        "__config": "cpp",
+        "map": "cpp"
     }
 }
