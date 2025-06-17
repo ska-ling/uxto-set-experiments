@@ -159,13 +159,18 @@ int main(int argc, char** argv) {
 
     utxo_db db;
 
+    // Compactación
+    // log_print("Opening DB ...\n");
+    // db.configure("utxo_interprocess_multiple", false); 
+    // log_print("DB opened with size: {}\n", db.size());
+    // db.compact_all();
+    // log_print("DB compacted, size: {}\n", db.size());
+    // db.close();
+    // return 0; // Exit early for testing purposes
+
     log_print("Opening DB ...\n");
-    db.configure("utxo_interprocess_multiple", false); 
+    db.configure("utxo_interprocess_multiple", true); 
     log_print("DB opened with size: {}\n", db.size());
-    db.compact_all();
-    log_print("DB compacted, size: {}\n", db.size());
-    db.close();
-    return 0; // Exit early for testing purposes
 
     process(path,
         [&](auto const& tx_hashes, auto&& txs) {
