@@ -47,7 +47,7 @@ inline constexpr std::array<size_t, 4> container_sizes = {44, 128, 512, 10240};
 inline constexpr std::array<size_t, 4> file_sizes = {
     800_mib,
     200_mib,
-    50_mib,
+    100_mib,
     50_mib
 };
 
@@ -424,7 +424,7 @@ private:
 class utxo_db {
     using span_bytes = std::span<uint8_t const>;
     static constexpr auto IdxN = container_sizes.size();
-    static constexpr size_t op_return_file_size = 10_mib;
+    static constexpr size_t op_return_file_size = 400_mib;
 
     template <size_t Index>
         requires (Index < IdxN)
