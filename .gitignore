@@ -1,2 +1,4 @@
 CMakeUserPresets.json
 build/
+benchmark_bench_db_*.log
+utxo_interprocess_multiple/

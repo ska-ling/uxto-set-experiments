@@ -54,6 +54,7 @@
         "span": "cpp",
         "memory": "cpp",
         "__config": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "sstream": "cpp"
     }
 }

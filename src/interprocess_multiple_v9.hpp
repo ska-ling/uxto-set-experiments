@@ -620,6 +620,9 @@ public:
         min_buckets_ok_[3] = find_optimal_buckets<3>("./optimal", file_sizes[3], 7864304);
         log_print("Optimal number of buckets for container {} and file size {}: {}\n", 3, file_sizes[3], min_buckets_ok_[3]);
 
+        index_optimal_buckets_ = find_optimal_buckets_index("./optimal", index_file_size, index_optimal_buckets_);
+        log_print("Optimal number of buckets for index and file size {}: {}\n", index_file_size, index_optimal_buckets_);
+
         // Initialize index
         size_t latest_index_version = find_latest_index_version();
         open_or_create_index(latest_index_version);
@@ -1462,7 +1465,7 @@ private:
                     mid,
                     boost::hash<data_key_t>{},
                     std::equal_to<data_key_t>{},
-                    segment.get_allocator<std::pair<data_key_t const, utxo_value<container_sizes[Index]>>>()
+                    segment.get_allocator<typename utxo_map<container_sizes[Index]>::value_type>()
                 );
 
                 best_buckets = mid;
@@ -1480,6 +1483,45 @@ private:
         return best_buckets;
     }
     
+    size_t find_optimal_buckets_index(std::string const& file_path, size_t file_size, size_t initial_buckets) {
+        log_print("Finding optimal number of buckets for index file: {} (size: {})...\n", 
+                 file_path, file_size);
+        
+        size_t left = 1;
+        size_t right = initial_buckets;
+        size_t best_buckets = left;
+        
+        while (left <= right) {
+            size_t mid = left + (right - left) / 2;
+            log_print("Trying with {} buckets...\n", mid);
+
+            std::string temp_file = fmt::format("{}/temp_index_{}_{}.dat", file_path, file_size, mid);
+            try {
+                bip::managed_mapped_file segment(bip::open_or_create, temp_file.c_str(), file_size);
+
+                auto* map = segment.find_or_construct<index_map_t>("temp_index_map")(
+                    mid,
+                    key_hash{},
+                    key_equal{},
+                    segment.get_allocator<typename index_map_t::value_type>()
+                );
+
+                best_buckets = mid;
+                left = mid + 1;
+                log_print("Buckets {} successful. Increasing range...\n", mid);
+            } catch (boost::interprocess::bad_alloc const& e) {
+                log_print("Failed with {} buckets: {}\n", mid, e.what());
+                right = mid - 1;
+            }
+
+            std::filesystem::remove(temp_file);
+        }
+
+        log_print("Optimal number of buckets for index file: {}\n", best_buckets);
+        return best_buckets;
+    }
+
+
     void update_fragmentation_stats() {
         for_each_index<IdxN>([&](auto I) {
             auto& map = container<I>();
