@@ -237,6 +237,7 @@ int main(int argc, char** argv) {
             if (height % 20 == 0) {
                 db.compact_all();
             }
+            ++height;
         },
         [&]() {
             // Imprimir estadísticas después de cada bloque
