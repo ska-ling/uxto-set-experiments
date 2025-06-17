@@ -14,8 +14,12 @@
 using utxo_db = utxo::utxo_db_leveldb;
 #elif defined(DBKIND) && DBKIND == 0
 // #include "interprocess_multiple_v8.hpp"
-#include "interprocess_multiple_v6.hpp"
 // #include "interprocess_multiple_v9.hpp"
+
+// Line without index files
+// #include "interprocess_multiple_v6.hpp"
+#include "interprocess_multiple_v10.hpp"
+
 using utxo_db = utxo::utxo_db;
 #endif 
 
