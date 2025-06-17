@@ -424,7 +424,7 @@ private:
 class utxo_db {
     using span_bytes = std::span<uint8_t const>;
     static constexpr auto IdxN = container_sizes.size();
-    static constexpr size_t op_return_file_size = 800_mib;
+    static constexpr size_t op_return_file_size = 10_mib;
 
     template <size_t Index>
         requires (Index < IdxN)
