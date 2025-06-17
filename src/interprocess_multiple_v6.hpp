@@ -637,6 +637,8 @@ public:
                 load_metadata_from_disk(I, v);
             }
         });
+
+        open_or_create_op_return_set();
     }
     
     void close() {
