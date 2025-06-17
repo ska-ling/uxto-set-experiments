@@ -221,8 +221,11 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     size_t block_from = 0;
     // size_t block_from = 566994;
     // size_t block_from = 710000;
+    // size_t block_from = 538475;
     
     size_t tx_from = 0;
+    // size_t tx_from = 87;
+    
     size_t input_count = 0;
     size_t output_count = 0;
     size_t total_transactions = 0;
