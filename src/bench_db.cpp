@@ -18,7 +18,8 @@ using utxo_db = utxo::utxo_db_leveldb;
 
 // Line without index files
 // #include "interprocess_multiple_v6.hpp"
-#include "interprocess_multiple_v10.hpp"
+// #include "interprocess_multiple_v10.hpp"
+#include "interprocess_multiple_v11.hpp" // compactación de archivos de datos.
 
 using utxo_db = utxo::utxo_db;
 #endif 
@@ -159,8 +160,12 @@ int main(int argc, char** argv) {
     utxo_db db;
 
     log_print("Opening DB ...\n");
-    db.configure("utxo_interprocess_multiple", true); 
+    db.configure("utxo_interprocess_multiple", false); 
     log_print("DB opened with size: {}\n", db.size());
+    db.compact_all();
+    log_print("DB compacted, size: {}\n", db.size());
+    db.close();
+    return 0; // Exit early for testing purposes
 
     process(path,
         [&](auto const& tx_hashes, auto&& txs) {

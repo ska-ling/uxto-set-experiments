@@ -136,7 +136,6 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
             auto& txs = blk.transactions();
             size_t const start_index = global_block_index == block_from ? tx_from : 0;
-            size_t const end_index = std::min(txs.size(), start_index + remaining());
 
             if (start_index >= txs.size()) {
                 // Skip this block if the start index is out of range
@@ -145,14 +144,26 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
                 throw std::runtime_error("Start index out of range");
                 continue;
             }
+
+            // Check if adding all remaining transactions from this block would exceed n
+            // If we already have enough transactions, include all transactions from this block
+            size_t const remaining_txs_in_block = txs.size() - start_index;
+            bool const will_exceed_n = transactions.size() + remaining_txs_in_block > n;
+            bool const already_have_enough = transactions.size() >= n;
+
+            // If we already have enough transactions OR adding this entire block would exceed n,
+            // include all transactions from this block to avoid cutting it off
+            size_t const end_index = (already_have_enough || will_exceed_n) ? txs.size() : std::min(txs.size(), start_index + remaining());
+
             size_t old_transaction_size = transactions.size();
             size_t old_txs_size = txs.size();
 
             std::move(txs.begin() + start_index, txs.begin() + end_index, std::back_inserter(transactions));
 
+            // Return after processing this block if we have at least n transactions
             if (transactions.size() >= n) {
-                size_t const next_tx_index = end_index == txs.size() ? 0 : end_index;
-                size_t const next_block_index = global_block_index + (end_index == txs.size() ? 1 : 0);
+                size_t const next_tx_index = 0; // Always start from beginning of next block
+                size_t const next_block_index = global_block_index + 1;
 
                 blk.reset();
                 log_print("(1) Returning transactions_collected: {} - block {} - tx {}\n", transactions.size(), next_block_index, next_tx_index);
@@ -215,9 +226,10 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     std::mt19937 gen(rd());
     // std::uniform_int_distribution<int> dis(1'000, 5'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(500'000, 500'000); //TODO: hardcoded values
-    std::uniform_int_distribution<int> dis(1'000'000, 1'000'000); //TODO: hardcoded values
+    // std::uniform_int_distribution<int> dis(1'000'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(500'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(50'000, 100'000); //TODO: hardcoded values
+    std::uniform_int_distribution<int> dis(100'000, 100'000); //TODO: hardcoded values
 
     size_t block_from = 0;
     // size_t block_from = 566994;
