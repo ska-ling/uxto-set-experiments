@@ -214,7 +214,8 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     std::random_device rd;
     std::mt19937 gen(rd());
     // std::uniform_int_distribution<int> dis(1'000, 5'000); //TODO: hardcoded values
-    std::uniform_int_distribution<int> dis(500'000, 500'000); //TODO: hardcoded values
+    // std::uniform_int_distribution<int> dis(500'000, 500'000); //TODO: hardcoded values
+    std::uniform_int_distribution<int> dis(1'000'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(500'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(50'000, 100'000); //TODO: hardcoded values
 
