@@ -677,7 +677,7 @@ public:
 
     // Insert OP_RETURN keys
     void insert_op_returns(boost::unordered_flat_set<utxo_key_t> const& op_return_keys, uint32_t height) {
-        if (!op_return_segment_ || !op_return_set_) {
+        if ( ! op_return_segment_ || ! op_return_set_) {
             log_print("ERROR: OP_RETURN set not initialized before insert_op_returns.\n");
             return;
         }
