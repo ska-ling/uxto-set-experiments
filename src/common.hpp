@@ -229,7 +229,8 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     // std::uniform_int_distribution<int> dis(1'000'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(500'000, 1'000'000); //TODO: hardcoded values
     // std::uniform_int_distribution<int> dis(50'000, 100'000); //TODO: hardcoded values
-    std::uniform_int_distribution<int> dis(100'000, 100'000); //TODO: hardcoded values
+    // std::uniform_int_distribution<int> dis(100'000, 100'000); //TODO: hardcoded values
+    std::uniform_int_distribution<int> dis(2'000'000, 2'000'000); //TODO: hardcoded values
 
     size_t block_from = 0;
     // size_t block_from = 566994;
