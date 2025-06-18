@@ -49,7 +49,7 @@ inline constexpr size_t utxo_key_size = 36;
 inline constexpr std::array<size_t, 4> container_sizes = {44, 128, 512, 10240};
 inline constexpr std::array<size_t, 4> file_sizes = {
     2_gib,
-    200_mib,
+    2_gib,
     100_mib,
     50_mib
 };
