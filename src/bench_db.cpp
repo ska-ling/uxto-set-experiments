@@ -210,7 +210,8 @@ float delete_factor = 0.2f;
 constexpr float alpha = 0.1f;
 
 // Modified return type
-std::tuple<to_insert_utxos_t, to_delete_utxos_t, op_return_utxos_t, size_t, size_t> 
+// std::tuple<to_insert_utxos_t, to_delete_utxos_t, op_return_utxos_t, size_t, size_t>
+std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t>
 process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
 
     // constexpr float insert_factor = 2.5f;
@@ -221,7 +222,7 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     log_print("Using {} buckets for to_insert containers\n", buckets_insert);
     log_print("to_insert.bucket_count() = {}\n", to_insert.bucket_count());
     op_return_utxos_t op_returns_to_store; // Set for OP_RETURN UTXO keys
-    size_t op_return_outputs_identified = 0;
+    // size_t op_return_outputs_identified = 0;
 
     // insert all the outputs
     for (auto const& tx : txs) {
@@ -238,7 +239,7 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             ++output_index;
 
             if (is_op_return(output, height)) {
-                ++op_return_outputs_identified;
+                // ++op_return_outputs_identified;
                 op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
                 log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
                 utxo::print_key(current_key); // If needed for debugging
@@ -292,11 +293,18 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
                       reinterpret_cast<const uint8_t*>(&idx) + 4, 
                       key_to_remove.end() - 4);
 
-            auto const removed = to_insert.erase(key_to_remove);
+            auto removed = to_insert.erase(key_to_remove);
             if (removed == 0) {
-                // Not spent from this block's new outputs, so add to external deletes.
-                // The DB will check if it's an OP_RETURN or a regular UTXO.
-                to_delete.emplace(std::move(key_to_remove), std::move(input));
+                removed = op_returns_to_store.erase(key_to_remove);
+                if (removed == 0) {
+                    // Not spent from this block's new outputs, so add to external deletes.
+                    // The DB will check if it's an OP_RETURN or a regular UTXO.
+                    to_delete.emplace(std::move(key_to_remove), std::move(input));
+                } else {
+                    log_print("Removed OP_RETURN output from in-block UTXOs: ");
+                    utxo::print_key(key_to_remove);
+                    in_block_utxos += removed;
+                }
             } else {
                 in_block_utxos += removed;
             }
@@ -315,8 +323,8 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
         std::move(to_insert), 
         std::move(to_delete),
         std::move(op_returns_to_store), // Return the new set
-        in_block_utxos,
-        op_return_outputs_identified
+        in_block_utxos
+        // op_return_outputs_identified
     };
 }
 

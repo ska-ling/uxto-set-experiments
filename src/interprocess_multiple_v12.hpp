@@ -55,7 +55,7 @@ inline constexpr std::array<size_t, 4> file_sizes = {
 };
 
 inline constexpr std::string_view data_file_format = "{}/cont_{}_v{:05}.dat";
-inline constexpr std::string_view op_return_file_format = "{}/op_return_v{:05}.dat";
+// inline constexpr std::string_view op_return_file_format = "{}/op_return_v{:05}.dat";
 
 
 // Helper to create variant for compile-time dispatch
@@ -141,12 +141,12 @@ using utxo_map = boost::unordered_flat_map<
 >;
 
 // OP_RETURN set type
-using op_return_set_t = boost::unordered_flat_set<
-    utxo_key_t,
-    key_hash,
-    key_equal,
-    bip::allocator<utxo_key_t, segment_manager_t>
->;
+// using op_return_set_t = boost::unordered_flat_set<
+//     utxo_key_t,
+//     key_hash,
+//     key_equal,
+//     bip::allocator<utxo_key_t, segment_manager_t>
+// >;
 
 // File metadata - keeping your exact structure
 struct file_metadata {
@@ -427,7 +427,7 @@ private:
 class utxo_db {
     using span_bytes = std::span<uint8_t const>;
     static constexpr auto IdxN = container_sizes.size();
-    static constexpr size_t op_return_file_size = 2_gib;
+    // static constexpr size_t op_return_file_size = 2_gib;
 
     template <size_t Index>
         requires (Index < IdxN)
@@ -487,12 +487,12 @@ class utxo_db {
     };
 
     // Statistics for OP_RETURN set
-    struct op_return_stats {
-        size_t total_inserts = 0;
-        size_t total_deletes = 0;
-        size_t current_size = 0;
-        size_t failed_deletes = 0; // Should ideally be 0 if logic is correct
-    };
+    // struct op_return_stats {
+    //     size_t total_inserts = 0;
+    //     size_t total_deletes = 0;
+    //     size_t current_size = 0;
+    //     size_t failed_deletes = 0; // Should ideally be 0 if logic is correct
+    // };
 
 
 public:
@@ -508,7 +508,7 @@ public:
         file_cache_ = file_cache(std::string(path));
         
         // Initialize OP_RETURN set
-        open_or_create_op_return_set();
+        // open_or_create_op_return_set();
 
         static_assert(IdxN == 4); // if not, we have to change the following code ...
         min_buckets_ok_[0] = find_optimal_buckets<0>("./optimal", file_sizes[0], 7864304);
@@ -537,7 +537,7 @@ public:
         for_each_index<IdxN>([&](auto I) {
             close_container<I>();
         });
-        close_op_return_set();
+        // close_op_return_set();
     }
     
     size_t size() const {
@@ -561,64 +561,64 @@ public:
     }
 
     // Insert OP_RETURN keys
-    void insert_op_returns(boost::unordered_flat_set<utxo_key_t> const& op_return_keys, uint32_t height) {
-        if ( ! op_return_segment_ || ! op_return_set_) {
-            log_print("ERROR: OP_RETURN set not initialized before insert_op_returns.\n");
-            return;
-        }
+    // void insert_op_returns(boost::unordered_flat_set<utxo_key_t> const& op_return_keys, uint32_t height) {
+    //     if ( ! op_return_segment_ || ! op_return_set_) {
+    //         log_print("ERROR: OP_RETURN set not initialized before insert_op_returns.\n");
+    //         return;
+    //     }
 
-        for (auto const& key : op_return_keys) {
-            // Check if rotation is needed before insertion
-            if (op_return_needs_rotation()) {
-                log_print("OP_RETURN set needs rotation due to capacity constraints\n");
-                rotate_op_return_set();
-            }
+    //     for (auto const& key : op_return_keys) {
+    //         // Check if rotation is needed before insertion
+    //         if (op_return_needs_rotation()) {
+    //             log_print("OP_RETURN set needs rotation due to capacity constraints\n");
+    //             rotate_op_return_set();
+    //         }
             
-            size_t max_retries = 3;
-            bool inserted = false;
+    //         size_t max_retries = 3;
+    //         bool inserted = false;
             
-            while (max_retries > 0 && !inserted) {
-                try {
-                    auto [it, success] = op_return_set_->insert(key);
-                    if (success) {
-                        ++op_return_stats_.total_inserts;
-                        ++op_return_stats_.current_size;
-                        update_op_return_metadata_on_insert(op_return_current_version_, key);
-                        inserted = true;
+    //         while (max_retries > 0 && !inserted) {
+    //             try {
+    //                 auto [it, success] = op_return_set_->insert(key);
+    //                 if (success) {
+    //                     ++op_return_stats_.total_inserts;
+    //                     ++op_return_stats_.current_size;
+    //                     update_op_return_metadata_on_insert(op_return_current_version_, key);
+    //                     inserted = true;
                         
-                        // Log insertion: block height and txid (first 32 bytes of key)
-                        // log_print("OP_RETURN Inserted: Height: {}, Key: ", height);
-                        // print_key(key); // Assuming print_key logs the key appropriately
-                    } else {
-                        // Key already exists, consider it as successful insertion
-                        inserted = true;
-                    }
-                } catch (boost::interprocess::bad_alloc const& e) {
-                    log_print("Error inserting OP_RETURN key: {}\n", e.what());
-                    log_print("OP_RETURN set size: {}\n", op_return_set_->size());
+    //                     // Log insertion: block height and txid (first 32 bytes of key)
+    //                     // log_print("OP_RETURN Inserted: Height: {}, Key: ", height);
+    //                     // print_key(key); // Assuming print_key logs the key appropriately
+    //                 } else {
+    //                     // Key already exists, consider it as successful insertion
+    //                     inserted = true;
+    //                 }
+    //             } catch (boost::interprocess::bad_alloc const& e) {
+    //                 log_print("Error inserting OP_RETURN key: {}\n", e.what());
+    //                 log_print("OP_RETURN set size: {}\n", op_return_set_->size());
                     
-                    // Try to get memory info
-                    if (op_return_segment_) {
-                        try {
-                            size_t free_memory = op_return_segment_->get_free_memory();
-                            log_print("Free memory in OP_RETURN segment: {}\n", free_memory);
-                        } catch (...) {
-                            log_print("Cannot determine free memory in OP_RETURN segment\n");
-                        }
-                    }
+    //                 // Try to get memory info
+    //                 if (op_return_segment_) {
+    //                     try {
+    //                         size_t free_memory = op_return_segment_->get_free_memory();
+    //                         log_print("Free memory in OP_RETURN segment: {}\n", free_memory);
+    //                     } catch (...) {
+    //                         log_print("Cannot determine free memory in OP_RETURN segment\n");
+    //                     }
+    //                 }
                     
-                    // Rotate and retry
-                    rotate_op_return_set();
-                    --max_retries;
-                }
-            }
+    //                 // Rotate and retry
+    //                 rotate_op_return_set();
+    //                 --max_retries;
+    //             }
+    //         }
             
-            if (!inserted) {
-                log_print("ERROR: Failed to insert OP_RETURN key after 3 retries\n");
-                throw boost::interprocess::bad_alloc();
-            }
-        }
-    }
+    //         if (!inserted) {
+    //             log_print("ERROR: Failed to insert OP_RETURN key after 3 retries\n");
+    //             throw boost::interprocess::bad_alloc();
+    //         }
+    //     }
+    // }
     
     // Clean erase interface with deferred deletion
     size_t erase(utxo_key_t const& key, uint32_t height) {
@@ -638,16 +638,16 @@ public:
         }
 
         // // Check OP_RETURN set (only current version) if not found in regular UTXO stores
-        if (op_return_set_ && op_return_set_->count(key)) {
-            if (op_return_set_->erase(key)) {
-                ++op_return_stats_.total_deletes;
-                --op_return_stats_.current_size;
-                update_op_return_metadata_on_delete(op_return_current_version_);
-                log_print("OP_RETURN Erased from current version: Height: {}, Key: ", height);
-                print_key(key);
-                return 1; 
-            }
-        }
+        // if (op_return_set_ && op_return_set_->count(key)) {
+        //     if (op_return_set_->erase(key)) {
+        //         ++op_return_stats_.total_deletes;
+        //         --op_return_stats_.current_size;
+        //         update_op_return_metadata_on_delete(op_return_current_version_);
+        //         log_print("OP_RETURN Erased from current version: Height: {}, Key: ", height);
+        //         print_key(key);
+        //         return 1; 
+        //     }
+        // }
         
         // Add to deferred deletions to be processed later
         
@@ -914,22 +914,22 @@ public:
         }
         
         // Phase 3: Process OLD OP_RETURN versions for remaining deferred deletions
-        if (!deferred_deletions_.empty() && op_return_current_version_ > 0) {
-            log_print("Phase 3: Processing old OP_RETURN versions for {} remaining deferred deletions...\n", 
-                     deferred_deletions_.size());
+        // if (!deferred_deletions_.empty() && op_return_current_version_ > 0) {
+        //     log_print("Phase 3: Processing old OP_RETURN versions for {} remaining deferred deletions...\n", 
+        //              deferred_deletions_.size());
             
-            // Process OP_RETURN versions from latest-1 down to 0
-            for (size_t v = op_return_current_version_ - 1; v != SIZE_MAX; --v) {
-                if (deferred_deletions_.empty()) break;
+        //     // Process OP_RETURN versions from latest-1 down to 0
+        //     for (size_t v = op_return_current_version_ - 1; v != SIZE_MAX; --v) {
+        //         if (deferred_deletions_.empty()) break;
                 
-                auto op_return_file = fmt::format(op_return_file_format, db_path_.string(), v);
-                if (!fs::exists(op_return_file)) {
-                    continue;
-                }
+        //         auto op_return_file = fmt::format(op_return_file_format, db_path_.string(), v);
+        //         if (!fs::exists(op_return_file)) {
+        //             continue;
+        //         }
                 
-                successful_deletions += process_deferred_deletions_in_op_return_file(v);
-            }
-        }
+        //         successful_deletions += process_deferred_deletions_in_op_return_file(v);
+        //     }
+        // }
         
         // Collect any remaining UTXOs that couldn't be deleted (these are ERRORS)
         std::vector<utxo_key_t> failed_deletions;
@@ -1006,7 +1006,7 @@ public:
         fragmentation_stats fragmentation;
 
         // OP_RETURN stats
-        op_return_stats op_return; // Add this
+        // op_return_stats op_return; // Add this
     };
     
     db_statistics get_statistics() {
@@ -1038,7 +1038,7 @@ public:
         stats.not_found = not_found_stats_;
         stats.lifetime = lifetime_stats_;
         stats.fragmentation = fragmentation_stats_;
-        stats.op_return = op_return_stats_; // Add this
+        // stats.op_return = op_return_stats_; // Add this
         
         return stats;
     }
@@ -1152,11 +1152,11 @@ public:
         log_print("Average UTXO age: {:.2f} blocks\n", stats.search_summary.avg_utxo_age);
         log_print("Cache hit rate (when depth > 0): {:.2f}%\n", stats.search_summary.cache_hit_rate * 100);
         
-        log_print("\n--- OP_RETURN Set Statistics ---\n");
-        log_print("Total OP_RETURNs inserted: {}\n", stats.op_return.total_inserts);
-        log_print("Total OP_RETURNs deleted: {}\n", stats.op_return.total_deletes);
-        log_print("Current OP_RETURNs size: {}\n", stats.op_return.current_size);
-        log_print("Failed OP_RETURN deletes: {}\n", stats.op_return.failed_deletes);
+        // log_print("\n--- OP_RETURN Set Statistics ---\n");
+        // log_print("Total OP_RETURNs inserted: {}\n", stats.op_return.total_inserts);
+        // log_print("Total OP_RETURNs deleted: {}\n", stats.op_return.total_deletes);
+        // log_print("Current OP_RETURNs size: {}\n", stats.op_return.current_size);
+        // log_print("Failed OP_RETURN deletes: {}\n", stats.op_return.failed_deletes);
 
         log_print("\n================================\n");
     }
@@ -1170,7 +1170,7 @@ public:
         not_found_stats_ = not_found_stats{};
         lifetime_stats_ = utxo_lifetime_stats{};
         fragmentation_stats_ = fragmentation_stats{};
-        op_return_stats_ = op_return_stats{}; // Add this
+        // op_return_stats_ = op_return_stats{}; // Add this
         reset_search_stats();
     }    
 
@@ -1192,10 +1192,10 @@ private:
     boost::unordered_flat_set<deferred_deletion_entry> deferred_deletions_;
     
     // OP_RETURN set storage - now supports multiple versions
-    std::unique_ptr<bip::managed_mapped_file> op_return_segment_;
-    op_return_set_t* op_return_set_ = nullptr;
-    std::vector<file_metadata> op_return_metadata_;
-    size_t op_return_current_version_ = 0;
+    // std::unique_ptr<bip::managed_mapped_file> op_return_segment_;
+    // op_return_set_t* op_return_set_ = nullptr;
+    // std::vector<file_metadata> op_return_metadata_;
+    // size_t op_return_current_version_ = 0;
 
     // Agregar estos miembros a la clase
     std::array<container_stats, IdxN> container_stats_;
@@ -1205,7 +1205,7 @@ private:
     fragmentation_stats fragmentation_stats_;
 
     // OP_RETURN statistics member
-    op_return_stats op_return_stats_;
+    // op_return_stats op_return_stats_;
 
 
     // Get container
@@ -1563,56 +1563,56 @@ private:
         }
     }
 
-    // Process deferred deletions for a specific OP_RETURN file version
-    size_t process_deferred_deletions_in_op_return_file(size_t version) {
-        if (deferred_deletions_.empty()) return 0;
+    // // Process deferred deletions for a specific OP_RETURN file version
+    // size_t process_deferred_deletions_in_op_return_file(size_t version) {
+    //     if (deferred_deletions_.empty()) return 0;
         
-        auto op_return_file = fmt::format(op_return_file_format, db_path_.string(), version);
-        size_t successful_deletions = 0;
+    //     auto op_return_file = fmt::format(op_return_file_format, db_path_.string(), version);
+    //     size_t successful_deletions = 0;
         
-        try {
-            // Open the old OP_RETURN file
-            auto old_segment = std::make_unique<bip::managed_mapped_file>(
-                bip::open_read_only, op_return_file.c_str());
+    //     try {
+    //         // Open the old OP_RETURN file
+    //         auto old_segment = std::make_unique<bip::managed_mapped_file>(
+    //             bip::open_read_only, op_return_file.c_str());
             
-            auto* old_set = old_segment->find<op_return_set_t>("OPReturnSet").first;
-            if (!old_set) {
-                log_print("Could not find OPReturnSet in file v{}\n", version);
-                return 0;
-            }
+    //         auto* old_set = old_segment->find<op_return_set_t>("OPReturnSet").first;
+    //         if (!old_set) {
+    //             log_print("Could not find OPReturnSet in file v{}\n", version);
+    //             return 0;
+    //         }
             
-            // Process deferred deletions against this old OP_RETURN set
-            auto it = deferred_deletions_.begin();
-            while (it != deferred_deletions_.end()) {
-                if (old_set->count(it->key)) {
-                    // Found the key in this old OP_RETURN version
-                    // Since we can't modify read-only files, we'll just mark it as processed
-                    log_print("Found OP_RETURN key in old version v{}: ", version);
-                    print_key(it->key);
+    //         // Process deferred deletions against this old OP_RETURN set
+    //         auto it = deferred_deletions_.begin();
+    //         while (it != deferred_deletions_.end()) {
+    //             if (old_set->count(it->key)) {
+    //                 // Found the key in this old OP_RETURN version
+    //                 // Since we can't modify read-only files, we'll just mark it as processed
+    //                 log_print("Found OP_RETURN key in old version v{}: ", version);
+    //                 print_key(it->key);
                     
-                    // Update statistics
-                    ++op_return_stats_.total_deletes;
-                    ++successful_deletions;
+    //                 // Update statistics
+    //                 ++op_return_stats_.total_deletes;
+    //                 ++successful_deletions;
                     
-                    // Remove from deferred deletions
-                    it = deferred_deletions_.erase(it);
-                } else {
-                    ++it;
-                }
-            }
+    //                 // Remove from deferred deletions
+    //                 it = deferred_deletions_.erase(it);
+    //             } else {
+    //                 ++it;
+    //             }
+    //         }
             
-            if (successful_deletions > 0) {
-                log_print("Processed {} OP_RETURN deletions from old version v{} - {} remaining\n", 
-                         successful_deletions, version, deferred_deletions_.size());
-            }
+    //         if (successful_deletions > 0) {
+    //             log_print("Processed {} OP_RETURN deletions from old version v{} - {} remaining\n", 
+    //                      successful_deletions, version, deferred_deletions_.size());
+    //         }
             
-        } catch (std::exception const& e) {
-            log_print("Error processing OP_RETURN file v{}: {}\n", version, e.what());
-            return 0;
-        }
+    //     } catch (std::exception const& e) {
+    //         log_print("Error processing OP_RETURN file v{}: {}\n", version, e.what());
+    //         return 0;
+    //     }
         
-        return successful_deletions;
-    }
+    //     return successful_deletions;
+    // }
 
     // File management
     template <size_t Index>
@@ -1684,187 +1684,187 @@ private:
     }
 
     // OP_RETURN set file management
-    void open_or_create_op_return_set() {
-        // Find the latest version from existing files
-        op_return_current_version_ = find_latest_op_return_version();
+    // void open_or_create_op_return_set() {
+    //     // Find the latest version from existing files
+    //     op_return_current_version_ = find_latest_op_return_version();
         
-        auto file_path = fmt::format(op_return_file_format, db_path_.string(), op_return_current_version_);
-        bool new_file = !fs::exists(file_path);
+    //     auto file_path = fmt::format(op_return_file_format, db_path_.string(), op_return_current_version_);
+    //     bool new_file = !fs::exists(file_path);
 
-        try {
-            op_return_segment_ = std::make_unique<bip::managed_mapped_file>(
-                bip::open_or_create, file_path.c_str(), op_return_file_size);
+    //     try {
+    //         op_return_segment_ = std::make_unique<bip::managed_mapped_file>(
+    //             bip::open_or_create, file_path.c_str(), op_return_file_size);
 
-            if (new_file) {
-                op_return_set_ = op_return_segment_->construct<op_return_set_t>("OPReturnSet")(
-                    op_return_segment_->get_segment_manager());
+    //         if (new_file) {
+    //             op_return_set_ = op_return_segment_->construct<op_return_set_t>("OPReturnSet")(
+    //                 op_return_segment_->get_segment_manager());
                 
-                // Initialize metadata for new version
-                if (op_return_metadata_.size() <= op_return_current_version_) {
-                    op_return_metadata_.resize(op_return_current_version_ + 1);
-                }
-                op_return_metadata_[op_return_current_version_] = file_metadata{};
+    //             // Initialize metadata for new version
+    //             if (op_return_metadata_.size() <= op_return_current_version_) {
+    //                 op_return_metadata_.resize(op_return_current_version_ + 1);
+    //             }
+    //             op_return_metadata_[op_return_current_version_] = file_metadata{};
                 
-                log_print("Created new OP_RETURN set file v{}: {}\n", op_return_current_version_, file_path);
-            } else {
-                op_return_set_ = op_return_segment_->find_or_construct<op_return_set_t>("OPReturnSet")(
-                    op_return_segment_->get_segment_manager());
+    //             log_print("Created new OP_RETURN set file v{}: {}\n", op_return_current_version_, file_path);
+    //         } else {
+    //             op_return_set_ = op_return_segment_->find_or_construct<op_return_set_t>("OPReturnSet")(
+    //                 op_return_segment_->get_segment_manager());
                 
-                // Load metadata for all versions
-                for (size_t v = 0; v <= op_return_current_version_; ++v) {
-                    load_op_return_metadata(v);
-                }
+    //             // Load metadata for all versions
+    //             for (size_t v = 0; v <= op_return_current_version_; ++v) {
+    //                 load_op_return_metadata(v);
+    //             }
                 
-                log_print("Opened existing OP_RETURN set file v{}: {}\n", op_return_current_version_, file_path);
-            }
+    //             log_print("Opened existing OP_RETURN set file v{}: {}\n", op_return_current_version_, file_path);
+    //         }
             
-            op_return_stats_.current_size = op_return_set_ ? op_return_set_->size() : 0;
+    //         op_return_stats_.current_size = op_return_set_ ? op_return_set_->size() : 0;
             
-        } catch (bip::interprocess_exception const& e) {
-            log_print("ERROR: Failed to open or create OP_RETURN set file {}: {}\n", file_path, e.what());
-            op_return_segment_.reset();
-            op_return_set_ = nullptr;
-            // Potentially rethrow or handle more gracefully
-            throw;
-        }
-    }
+    //     } catch (bip::interprocess_exception const& e) {
+    //         log_print("ERROR: Failed to open or create OP_RETURN set file {}: {}\n", file_path, e.what());
+    //         op_return_segment_.reset();
+    //         op_return_set_ = nullptr;
+    //         // Potentially rethrow or handle more gracefully
+    //         throw;
+    //     }
+    // }
 
-    void close_op_return_set() {
-        if (op_return_segment_) {
-            // save_op_return_metadata(); // You'll need to implement this
-            // bip::managed_mapped_file::flush(*op_return_segment_); // Optional: ensure data is written
-            op_return_segment_.reset(); // This will unmap and close the file
-            op_return_set_ = nullptr;
-            log_print("Closed OP_RETURN set file.\n");
-        }
-    }
+    // void close_op_return_set() {
+    //     if (op_return_segment_) {
+    //         // save_op_return_metadata(); // You'll need to implement this
+    //         // bip::managed_mapped_file::flush(*op_return_segment_); // Optional: ensure data is written
+    //         op_return_segment_.reset(); // This will unmap and close the file
+    //         op_return_set_ = nullptr;
+    //         log_print("Closed OP_RETURN set file.\n");
+    //     }
+    // }
     
-    // Helper functions for OP_RETURN version management
-    size_t find_latest_op_return_version() {
-        size_t latest_version = 0;
+    // // Helper functions for OP_RETURN version management
+    // size_t find_latest_op_return_version() {
+    //     size_t latest_version = 0;
         
-        // Look for existing OP_RETURN files with version numbers
-        for (size_t v = 0; v < 10000; ++v) { // Reasonable upper limit
-            auto file_path = fmt::format(op_return_file_format, db_path_.string(), v);
-            if (fs::exists(file_path)) {
-                latest_version = v;
-            } else if (v > latest_version + 100) {
-                // If we haven't found a file in 100 iterations past the latest, stop
-                break;
-            }
-        }
+    //     // Look for existing OP_RETURN files with version numbers
+    //     for (size_t v = 0; v < 10000; ++v) { // Reasonable upper limit
+    //         auto file_path = fmt::format(op_return_file_format, db_path_.string(), v);
+    //         if (fs::exists(file_path)) {
+    //             latest_version = v;
+    //         } else if (v > latest_version + 100) {
+    //             // If we haven't found a file in 100 iterations past the latest, stop
+    //             break;
+    //         }
+    //     }
         
-        return latest_version;
-    }
+    //     return latest_version;
+    // }
     
-    void load_op_return_metadata(size_t version) {
-        // Ensure metadata vector is large enough
-        if (op_return_metadata_.size() <= version) {
-            op_return_metadata_.resize(version + 1);
-        }
+    // void load_op_return_metadata(size_t version) {
+    //     // Ensure metadata vector is large enough
+    //     if (op_return_metadata_.size() <= version) {
+    //         op_return_metadata_.resize(version + 1);
+    //     }
         
-        auto metadata_file = fmt::format("{}/op_return_meta_v{:05}.dat", db_path_.string(), version);
+    //     auto metadata_file = fmt::format("{}/op_return_meta_v{:05}.dat", db_path_.string(), version);
         
-        // For now, initialize empty metadata (implement actual loading later if needed)
-        op_return_metadata_[version] = file_metadata{};
-        op_return_metadata_[version].container_index = SIZE_MAX; // Special marker for OP_RETURN
-        op_return_metadata_[version].version = version;
-    }
+    //     // For now, initialize empty metadata (implement actual loading later if needed)
+    //     op_return_metadata_[version] = file_metadata{};
+    //     op_return_metadata_[version].container_index = SIZE_MAX; // Special marker for OP_RETURN
+    //     op_return_metadata_[version].version = version;
+    // }
     
-    void save_op_return_metadata(size_t version) {
-        if (version < op_return_metadata_.size()) {
-            auto metadata_file = fmt::format("{}/op_return_meta_v{:05}.dat", db_path_.string(), version);
-            // TODO: Implement actual saving to disk for op_return_metadata_[version]
-            // For now, metadata is stored in memory
-        }
-    }
+    // void save_op_return_metadata(size_t version) {
+    //     if (version < op_return_metadata_.size()) {
+    //         auto metadata_file = fmt::format("{}/op_return_meta_v{:05}.dat", db_path_.string(), version);
+    //         // TODO: Implement actual saving to disk for op_return_metadata_[version]
+    //         // For now, metadata is stored in memory
+    //     }
+    // }
     
-    void update_op_return_metadata_on_insert(size_t version, utxo_key_t const& key) {
-        if (op_return_metadata_.size() <= version) {
-            op_return_metadata_.resize(version + 1);
-        }
+    // void update_op_return_metadata_on_insert(size_t version, utxo_key_t const& key) {
+    //     if (op_return_metadata_.size() <= version) {
+    //         op_return_metadata_.resize(version + 1);
+    //     }
         
-        auto& metadata = op_return_metadata_[version];
-        if (metadata.entry_count == 0) {
-            metadata.min_key = metadata.max_key = key;
-        } else {
-            if (key < metadata.min_key) metadata.min_key = key;
-            if (key > metadata.max_key) metadata.max_key = key;
-        }
-        metadata.entry_count++;
-    }
+    //     auto& metadata = op_return_metadata_[version];
+    //     if (metadata.entry_count == 0) {
+    //         metadata.min_key = metadata.max_key = key;
+    //     } else {
+    //         if (key < metadata.min_key) metadata.min_key = key;
+    //         if (key > metadata.max_key) metadata.max_key = key;
+    //     }
+    //     metadata.entry_count++;
+    // }
     
-    void update_op_return_metadata_on_delete(size_t version) {
-        if (version < op_return_metadata_.size() && op_return_metadata_[version].entry_count > 0) {
-            op_return_metadata_[version].entry_count--;
-        }
-    }
+    // void update_op_return_metadata_on_delete(size_t version) {
+    //     if (version < op_return_metadata_.size() && op_return_metadata_[version].entry_count > 0) {
+    //         op_return_metadata_[version].entry_count--;
+    //     }
+    // }
     
-    // Check if OP_RETURN set needs rotation
-    bool op_return_needs_rotation() const {
-        if (!op_return_set_) return false;
+    // // Check if OP_RETURN set needs rotation
+    // bool op_return_needs_rotation() const {
+    //     if (!op_return_set_) return false;
         
-        // Check if the set is getting close to capacity
-        // We'll use a heuristic based on load factor and available memory
-        try {
-            if (op_return_segment_) {
-                size_t free_memory = op_return_segment_->get_free_memory();
-                size_t current_size = op_return_set_->size();
+    //     // Check if the set is getting close to capacity
+    //     // We'll use a heuristic based on load factor and available memory
+    //     try {
+    //         if (op_return_segment_) {
+    //             size_t free_memory = op_return_segment_->get_free_memory();
+    //             size_t current_size = op_return_set_->size();
                 
-                // Rotate if less than 10% memory is free or if we hit a size threshold
-                double memory_usage_ratio = 1.0 - (double(free_memory) / double(op_return_file_size));
+    //             // Rotate if less than 10% memory is free or if we hit a size threshold
+    //             double memory_usage_ratio = 1.0 - (double(free_memory) / double(op_return_file_size));
                 
-                if (memory_usage_ratio > 0.9 || current_size > 1000000) { // 1M entries threshold
-                    return true;
-                }
-            }
-        } catch (...) {
-            // If we can't determine memory usage, be conservative and rotate
-            return op_return_set_->size() > 500000; // 500K entries fallback
-        }
+    //             if (memory_usage_ratio > 0.9 || current_size > 1000000) { // 1M entries threshold
+    //                 return true;
+    //             }
+    //         }
+    //     } catch (...) {
+    //         // If we can't determine memory usage, be conservative and rotate
+    //         return op_return_set_->size() > 500000; // 500K entries fallback
+    //     }
         
-        return false;
-    }
+    //     return false;
+    // }
     
-    // Rotate OP_RETURN set to new version
-    void rotate_op_return_set() {
-        log_print("Rotating OP_RETURN set from version {} to {}\n", 
-                 op_return_current_version_, op_return_current_version_ + 1);
+    // // Rotate OP_RETURN set to new version
+    // void rotate_op_return_set() {
+    //     log_print("Rotating OP_RETURN set from version {} to {}\n", 
+    //              op_return_current_version_, op_return_current_version_ + 1);
         
-        // Simply close current set (don't cache it)
-        close_op_return_set();
+    //     // Simply close current set (don't cache it)
+    //     close_op_return_set();
         
-        // Increment version and create new file
-        ++op_return_current_version_;
+    //     // Increment version and create new file
+    //     ++op_return_current_version_;
         
-        auto file_path = fmt::format(op_return_file_format, db_path_.string(), op_return_current_version_);
+    //     auto file_path = fmt::format(op_return_file_format, db_path_.string(), op_return_current_version_);
         
-        try {
-            op_return_segment_ = std::make_unique<bip::managed_mapped_file>(
-                bip::create_only, file_path.c_str(), op_return_file_size);
+    //     try {
+    //         op_return_segment_ = std::make_unique<bip::managed_mapped_file>(
+    //             bip::create_only, file_path.c_str(), op_return_file_size);
             
-            op_return_set_ = op_return_segment_->construct<op_return_set_t>("OPReturnSet")(
-                op_return_segment_->get_segment_manager());
+    //         op_return_set_ = op_return_segment_->construct<op_return_set_t>("OPReturnSet")(
+    //             op_return_segment_->get_segment_manager());
             
-            // Initialize metadata for new version
-            if (op_return_metadata_.size() <= op_return_current_version_) {
-                op_return_metadata_.resize(op_return_current_version_ + 1);
-            }
-            op_return_metadata_[op_return_current_version_] = file_metadata{};
-            op_return_metadata_[op_return_current_version_].container_index = SIZE_MAX;
-            op_return_metadata_[op_return_current_version_].version = op_return_current_version_;
+    //         // Initialize metadata for new version
+    //         if (op_return_metadata_.size() <= op_return_current_version_) {
+    //             op_return_metadata_.resize(op_return_current_version_ + 1);
+    //         }
+    //         op_return_metadata_[op_return_current_version_] = file_metadata{};
+    //         op_return_metadata_[op_return_current_version_].container_index = SIZE_MAX;
+    //         op_return_metadata_[op_return_current_version_].version = op_return_current_version_;
             
-            // Reset current size since we have a new empty set
-            op_return_stats_.current_size = 0;
+    //         // Reset current size since we have a new empty set
+    //         op_return_stats_.current_size = 0;
             
-            log_print("Created new OP_RETURN set file v{}: {}\n", op_return_current_version_, file_path);
+    //         log_print("Created new OP_RETURN set file v{}: {}\n", op_return_current_version_, file_path);
             
-        } catch (bip::interprocess_exception const& e) {
-            log_print("ERROR: Failed to create new OP_RETURN set file v{}: {}\n", 
-                     op_return_current_version_, e.what());
-            throw;
-        }
-    }
+    //     } catch (bip::interprocess_exception const& e) {
+    //         log_print("ERROR: Failed to create new OP_RETURN set file v{}: {}\n", 
+    //                  op_return_current_version_, e.what());
+    //         throw;
+    //     }
+    // }
 
     // Utilities
     size_t get_index_from_size(size_t size) const {
