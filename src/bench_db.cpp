@@ -236,6 +236,10 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             ++output_index;
         }
     }
+    log_print("Inserted {} outputs into to_insert container.\n", to_insert.size());
+    log_print("to_insert.bucket_count() = {}\n", to_insert.bucket_count());
+    log_print("to_insert.load_factor(): {:.2f}\n", to_insert.load_factor());
+
 
     size_t in_block_utxos = 0;
     to_delete_utxos_t to_delete(buckets); // Use the calculated buckets
