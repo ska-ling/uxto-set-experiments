@@ -322,7 +322,7 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     return {
         std::move(to_insert), 
         std::move(to_delete),
-        std::move(op_returns_to_store), // Return the new set
+        // std::move(op_returns_to_store), // Return the new set
         in_block_utxos
         // op_return_outputs_identified
     };
