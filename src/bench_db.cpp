@@ -206,14 +206,12 @@ size_t calculate_buckets(size_t n) {
 
 
 float insert_factor = 2.5f;
-float delete_factor = 2.5f;
+float delete_factor = 0.2f;
 constexpr float alpha = 0.1f;
 
-
 // Modified return type
-std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> 
+std::tuple<to_insert_utxos_t, to_delete_utxos_t, op_return_utxos_t, size_t, size_t> 
 process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
-
 
     // constexpr float insert_factor = 2.5f;
     size_t const elems_insert = size_t(txs.size() * insert_factor); 
@@ -222,6 +220,8 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     to_insert_utxos_t to_insert(buckets_insert); // Use the calculated buckets
     log_print("Using {} buckets for to_insert containers\n", buckets_insert);
     log_print("to_insert.bucket_count() = {}\n", to_insert.bucket_count());
+    op_return_utxos_t op_returns_to_store; // Set for OP_RETURN UTXO keys
+    size_t op_return_outputs_identified = 0;
 
     // insert all the outputs
     for (auto const& tx : txs) {
@@ -231,16 +231,28 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
 
         size_t output_index = 0;
         for (auto&& output : tx.outputs()) {
-            if (is_op_return(output, height)) {
-                continue; // Skip OP_RETURN outputs
-            }
-
             // copy the output index into the key
             std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
                       reinterpret_cast<const uint8_t*>(&output_index) + 4, 
                       current_key.end() - 4);
-            to_insert.emplace(std::move(current_key), std::move(output)); // Add to regular inserts
             ++output_index;
+
+            if (is_op_return(output, height)) {
+                ++op_return_outputs_identified;
+                op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
+                log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
+                utxo::print_key(current_key); // If needed for debugging
+
+                continue; // Skip OP_RETURN outputs
+            }
+
+            // // copy the output index into the key
+            // std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
+            //           reinterpret_cast<const uint8_t*>(&output_index) + 4, 
+            //           current_key.end() - 4);
+            // ++output_index;
+            to_insert.emplace(std::move(current_key), std::move(output)); // Add to regular inserts
+            
         }
     }
     log_print("Inserted {} outputs into to_insert container.\n", to_insert.size());
@@ -290,16 +302,21 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             }
         }
     }
-    float const real_delete_factor = float(to_delete.size()) / float(txs.size());
-    delete_factor = alpha * real_delete_factor + (1.0f - alpha) * delete_factor;
-    log_print("Real delete factor: {:.2f}\n", real_delete_factor);
-    log_print("Updated delete factor: {:.2f}\n", delete_factor);
-
+    if (to_delete.size() == 0) {
+        log_print("No inputs to delete from DB in this block. We do not update the delete factor.\n");
+    } else {
+        float const real_delete_factor = float(to_delete.size()) / float(txs.size());
+        delete_factor = alpha * real_delete_factor + (1.0f - alpha) * delete_factor;
+        log_print("Real delete factor: {:.2f}\n", real_delete_factor);
+        log_print("Updated delete factor: {:.2f}\n", delete_factor);
+    }
 
     return {
         std::move(to_insert), 
         std::move(to_delete),
-        in_block_utxos
+        std::move(op_returns_to_store), // Return the new set
+        in_block_utxos,
+        op_return_outputs_identified
     };
 }
 
@@ -389,23 +406,23 @@ int main(int argc, char** argv) {
             auto const [
                 to_insert, 
                 to_delete,
-                // op_returns_to_store, // Receive the new set
-                in_block_utxos_count
-                // op_return_outputs_count // Renamed from skipped_op_return
+                op_returns_to_store, // Receive the new set
+                in_block_utxos_count,
+                op_return_outputs_count // Renamed from skipped_op_return
             ] = process_in_block(txs, height);
 
-            log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}. In-block spends: {}.\n", 
-                      to_insert.size(), to_delete.size(), in_block_utxos_count);
+            // log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}. In-block spends: {}.\n", 
+            //           to_insert.size(), to_delete.size(), in_block_utxos_count);
 
-            // log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
-            //     to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
+            log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
+                to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
 
-// #if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
-//             if ( ! op_returns_to_store.empty()) {
-//                 log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
-//                 db.insert_op_returns(op_returns_to_store, height);
-//             }
-// #endif
+#if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
+            if ( ! op_returns_to_store.empty()) {
+                log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
+                db.insert_op_returns(op_returns_to_store, height);
+            }
+#endif
 
             log_print("deleting inputs...\n");
             // first, delete the inputs

@@ -249,7 +249,7 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
         size_t const transaction_count = dis(gen);
         log_print("Reading {} real transactions from files ...\n", transaction_count);
         auto [transactions, tmp_block_from, tmp_tx_from] = get_n_transactions(path, block_from, tx_from, transaction_count);
-        log_print("Processing {} transactions ...\n", transactions.size());
+        log_print("Pre-rocessing {} transactions. Calculating number of inputs, outputs, tx hashes,...\n", transactions.size());
 
         if (transactions.empty()) {
             log_print("No more transactions to read\n");
@@ -278,6 +278,7 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
             tx_hashes.push_back(tx.hash());
         }
 
+        log_print("Processing {} transactions, benchmarking starts now ...\n", transactions.size());
         auto const start = std::chrono::high_resolution_clock::now();
         process_txs(tx_hashes, transactions);
         auto const end = std::chrono::high_resolution_clock::now();
