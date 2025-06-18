@@ -414,25 +414,25 @@ int main(int argc, char** argv) {
             auto const [
                 to_insert, 
                 to_delete,
-                op_returns_to_store, // Receive the new set
-                in_block_utxos_count,
-                op_return_outputs_count // Renamed from skipped_op_return
+                // op_returns_to_store, // Receive the new set
+                in_block_utxos_count
+                // op_return_outputs_count // Renamed from skipped_op_return
             ] = process_in_block(txs, height);
 
-            // log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}. In-block spends: {}.\n", 
-            //           to_insert.size(), to_delete.size(), in_block_utxos_count);
+            log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}. In-block spends: {}.\n", 
+                      to_insert.size(), to_delete.size(), in_block_utxos_count);
 
-            log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
-                to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
+            // log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
+            //     to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
 
-#if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
-            if ( ! op_returns_to_store.empty()) {
-                log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
-                db.insert_op_returns(op_returns_to_store, height);
-            }
-#endif
+// #if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
+//             if ( ! op_returns_to_store.empty()) {
+//                 log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
+//                 db.insert_op_returns(op_returns_to_store, height);
+//             }
+// #endif
 
-            log_print("deleting inputs...\n");
+            log_print("deleting {} inputs...\n", to_delete.size());
             // first, delete the inputs
             for (auto const& [k, v] : to_delete) {
                 auto res = db.erase(k, height);
@@ -446,7 +446,7 @@ int main(int argc, char** argv) {
 #endif
             }
 
-            log_print("Inserting outputs...\n");
+            log_print("Inserting {} outputs...\n", to_insert.size());
             // then, insert the outputs
             for (auto const& [k, v] : to_insert) {
                 db.insert(k, v.to_data(), height);
