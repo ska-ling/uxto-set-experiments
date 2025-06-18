@@ -44,8 +44,6 @@ constexpr size_t operator"" _gib(unsigned long long n) {
     return static_cast<size_t>(n) * 1024 * 1024 * 1024;
 }
 
-} // namespace utxo
-
 // Constants - KEEPING YOUR EXACT VALUES
 inline constexpr size_t utxo_key_size = 36;
 inline constexpr std::array<size_t, 4> container_sizes = {44, 128, 512, 10240};
