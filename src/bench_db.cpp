@@ -204,16 +204,23 @@ size_t calculate_buckets(size_t n) {
 // }
 
 
+
+float insert_factor = 2.5f;
+float delete_factor = 2.5f;
+constexpr float alpha = 0.1f;
+
+
 // Modified return type
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t> 
 process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
 
-    constexpr float factor = 0.75f;
-    size_t const elems = size_t(txs.size() * factor); // 75% of txs
-    size_t const buckets = calculate_buckets(elems);
 
-    to_insert_utxos_t to_insert(buckets); // Use the calculated buckets
-    log_print("Using {} buckets for to_insert and to_delete containers\n", buckets);
+    // constexpr float insert_factor = 2.5f;
+    size_t const elems_insert = size_t(txs.size() * insert_factor); 
+    size_t const buckets_insert = calculate_buckets(elems_insert);
+
+    to_insert_utxos_t to_insert(buckets_insert); // Use the calculated buckets
+    log_print("Using {} buckets for to_insert containers\n", buckets_insert);
     log_print("to_insert.bucket_count() = {}\n", to_insert.bucket_count());
 
     // insert all the outputs
@@ -240,10 +247,22 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     log_print("to_insert.bucket_count() = {}\n", to_insert.bucket_count());
     log_print("to_insert.load_factor(): {:.2f}\n", to_insert.load_factor());
 
+    float const real_insert_factor = float(to_insert.size()) / float(txs.size());
+    insert_factor = alpha * real_insert_factor + (1.0f - alpha) * insert_factor;
+    log_print("Real insert factor: {:.2f}\n", real_insert_factor);
+    log_print("Updated insert factor: {:.2f}\n", insert_factor);
+
+
 
     size_t in_block_utxos = 0;
-    to_delete_utxos_t to_delete(buckets); // Use the calculated buckets
+
+    // constexpr float delete_factor = 2.5f;
+    size_t const elems_delete = size_t(txs.size() * delete_factor); 
+    size_t const buckets_delete = calculate_buckets(elems_delete);
+
+    to_delete_utxos_t to_delete(buckets_delete); // Use the calculated buckets
     log_print("to_delete.bucket_count() = {}\n", to_delete.bucket_count());
+    log_print("Using {} buckets for to_delete containers\n", buckets_delete);
 
     // remove the inputs
     for (auto const& tx : txs) {
@@ -271,6 +290,11 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             }
         }
     }
+    float const real_delete_factor = float(to_delete.size()) / float(txs.size());
+    delete_factor = alpha * real_delete_factor + (1.0f - alpha) * delete_factor;
+    log_print("Real delete factor: {:.2f}\n", real_delete_factor);
+    log_print("Updated delete factor: {:.2f}\n", delete_factor);
+
 
     return {
         std::move(to_insert), 
