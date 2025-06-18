@@ -40,12 +40,17 @@ constexpr void for_each_index(Func&& f) {
 constexpr size_t operator"" _mib(unsigned long long n) {
     return static_cast<size_t>(n) * 1024 * 1024;
 }
+constexpr size_t operator"" _gib(unsigned long long n) {
+    return static_cast<size_t>(n) * 1024 * 1024 * 1024;
+}
+
+} // namespace utxo
 
 // Constants - KEEPING YOUR EXACT VALUES
 inline constexpr size_t utxo_key_size = 36;
 inline constexpr std::array<size_t, 4> container_sizes = {44, 128, 512, 10240};
 inline constexpr std::array<size_t, 4> file_sizes = {
-    800_mib,
+    2_gib,
     200_mib,
     100_mib,
     50_mib
@@ -424,7 +429,7 @@ private:
 class utxo_db {
     using span_bytes = std::span<uint8_t const>;
     static constexpr auto IdxN = container_sizes.size();
-    static constexpr size_t op_return_file_size = 400_mib;
+    static constexpr size_t op_return_file_size = 2_gib;
 
     template <size_t Index>
         requires (Index < IdxN)
