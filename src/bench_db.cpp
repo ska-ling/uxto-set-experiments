@@ -205,8 +205,9 @@ size_t calculate_buckets(size_t n) {
 
 
 
-float insert_factor = 2.5f;
-float delete_factor = 0.2f;
+float insert_factor = 6.0f;
+float delete_factor = 3.0f;
+float op_return_factor = 0.2f; // Factor for OP_RETURN UTXOs
 constexpr float alpha = 0.1f;
 
 // Modified return type
@@ -221,8 +222,14 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     to_insert_utxos_t to_insert(buckets_insert); // Use the calculated buckets
     log_print("Using {} buckets for to_insert containers\n", buckets_insert);
     log_print("to_insert.bucket_count() = {}\n", to_insert.bucket_count());
-    op_return_utxos_t op_returns_to_store; // Set for OP_RETURN UTXO keys
-    // size_t op_return_outputs_identified = 0;
+
+
+    size_t const elems_op_return = size_t(txs.size() * op_return_factor);
+    size_t const buckets_op_return = calculate_buckets(elems_op_return);
+
+    op_return_utxos_t op_returns_to_store(buckets_op_return); // Set for OP_RETURN UTXO keys
+    log_print("Using {} buckets for op_returns_to_store containers\n", buckets_op_return);
+    log_print("op_returns_to_store.bucket_count() = {}\n", op_returns_to_store.bucket_count());
 
     // insert all the outputs
     for (auto const& tx : txs) {
@@ -265,6 +272,15 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     log_print("Real insert factor: {:.2f}\n", real_insert_factor);
     log_print("Updated insert factor: {:.2f}\n", insert_factor);
 
+    // print op_return stats
+    log_print("OP_RETURN outputs identified: {}\n", op_returns_to_store.size());
+    log_print("op_returns_to_store.bucket_count() = {}\n", op_returns_to_store.bucket_count());
+    log_print("op_returns_to_store.load_factor(): {:.2f}\n", op_returns_to_store.load_factor());
+
+    float const real_op_return_factor = float(op_returns_to_store.size()) / float(txs.size());
+    op_return_factor = alpha * real_op_return_factor + (1.0f - alpha) * op_return_factor;
+    log_print("Real OP_RETURN factor: {:.2f}\n", real_op_return_factor);
+    log_print("Updated OP_RETURN factor: {:.2f}\n", op_return_factor);
 
 
     size_t in_block_utxos = 0;
@@ -322,9 +338,7 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
     return {
         std::move(to_insert), 
         std::move(to_delete),
-        // std::move(op_returns_to_store), // Return the new set
         in_block_utxos
-        // op_return_outputs_identified
     };
 }
 
