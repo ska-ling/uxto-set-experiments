@@ -241,8 +241,8 @@ process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t hei
             if (is_op_return(output, height)) {
                 // ++op_return_outputs_identified;
                 op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
-                log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
-                utxo::print_key(current_key); // If needed for debugging
+                // log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
+                // utxo::print_key(current_key); // If needed for debugging
 
                 continue; // Skip OP_RETURN outputs
             }
