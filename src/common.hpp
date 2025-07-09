@@ -118,15 +118,15 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         
         // Calculate the actual file end based on file naming convention
         // Files are named as: block-raw-X-Y.csv where Y = X + file_step - 1
-        // except for the last file which goes up to file_max
-        size_t const natural_file_end = current_file_start + file_step - 1;
-        size_t const actual_file_end = (current_file_start + file_step > file_max) ? file_max : natural_file_end;
+        // The file name always uses the full range, but we may only process up to file_max
+        size_t const file_end_name = current_file_start + file_step - 1;
+        size_t const blocks_to_process_end = std::min(current_file_start + file_step - 1, file_max);
         
-        std::filesystem::path const blocks_file = path / fmt::format("block-raw-{}-{}.csv", current_file_start, actual_file_end);
+        std::filesystem::path const blocks_file = path / fmt::format("block-raw-{}-{}.csv", current_file_start, file_end_name);
         log_print("Processing file {}\n", blocks_file);
 
         // Calculate how many blocks we can read from this file
-        size_t const blocks_available_in_file = actual_file_end - current_file_start - current_block_index + 1;
+        size_t const blocks_available_in_file = blocks_to_process_end - current_file_start - current_block_index + 1;
         size_t const blocks_to_read = std::min(remaining(), blocks_available_in_file);
         auto blocks_raw = get_blocks_raw_from_n(blocks_file, current_block_index, blocks_to_read);
 
