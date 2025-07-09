@@ -109,10 +109,8 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
     size_t global_block_index = block_from;
 
     while (true) {
-        if (current_file_start > file_max) {
-            break;
-        }
-        if (transactions.size() >= n) {
+        // Check exit conditions first
+        if (current_file_start > file_max || transactions.size() >= n) {
             break;
         }
         
@@ -186,11 +184,6 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
         current_file_start += file_step;
         current_block_index = 0;
-        
-        // If we've processed the last file, break
-        if (current_file_start > file_max) {
-            break;
-        }
     }
 
     log_print("Total transactions collected: {}\n", transactions.size());
