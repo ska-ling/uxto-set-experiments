@@ -175,6 +175,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         }
 
         current_file_start += file_step;
+        log_print("current_file_start: {}\n", current_file_start);
         current_block_index = 0;
     }
 
