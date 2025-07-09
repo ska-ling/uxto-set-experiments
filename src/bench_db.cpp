@@ -5,8 +5,8 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
-#define DBKIND 0    // custom
-// #define DBKIND 1 // leveldb
+// #define DBKIND 0    // custom
+#define DBKIND 1 // leveldb
 
 
 #if defined(DBKIND) && DBKIND == 1
@@ -297,9 +297,11 @@ int main(int argc, char** argv) {
                 }
             } 
 
+#if defined(DBKIND) && DBKIND == 0
             if (height != 0 && height % 20 == 0) {
                 db.compact_all();
             }
+#endif
             ++height;
         },
         [&]() {
@@ -330,7 +332,11 @@ int main(int argc, char** argv) {
     log_print("Processing completed.\n");
     db.print_statistics();
 
+#if defined(DBKIND) && DBKIND == 0    
+    log_print("Compacting DB...\n");
     db.compact_all();
+    log_print("Compaction completed.\n");
+#endif
 
     log_print("Closing DB... \n");
     db.close();
