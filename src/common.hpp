@@ -181,7 +181,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         }
 
         current_file_start += file_step;
-        log_print("current_file_start: {}\n", current_file_start);
+        // log_print("current_file_start: {}\n", current_file_start);
         if (current_file_start > file_max_end) {
             log_print("Reached end of files, stopping\n");
             stop = true;
@@ -263,7 +263,7 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
         log_print("Reading {} real transactions from files ...\n", transaction_count);
         auto [transactions, tmp_block_from, tmp_tx_from, stop] = get_n_transactions(path, block_from, tx_from, transaction_count);
         log_print("Pre-rocessing {} transactions. Calculating number of inputs, outputs, tx hashes,...\n", transactions.size());
-        log_print("stop: {}\n", stop);
+        // log_print("stop: {}\n", stop);
 
         if (transactions.empty()) {
             log_print("No more transactions to read\n");
