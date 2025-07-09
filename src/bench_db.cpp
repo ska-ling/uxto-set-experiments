@@ -5,8 +5,8 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
-// #define DBKIND 0    // custom
-#define DBKIND 1 // leveldb
+#define DBKIND 0    // custom
+// #define DBKIND 1 // leveldb
 
 
 #if defined(DBKIND) && DBKIND == 1

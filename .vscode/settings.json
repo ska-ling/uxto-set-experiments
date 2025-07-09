@@ -55,6 +55,7 @@
         "memory": "cpp",
         "__config": "cpp",
         "map": "cpp",
-        "sstream": "cpp"
+        "sstream": "cpp",
+        "charconv": "cpp"
     }
 }

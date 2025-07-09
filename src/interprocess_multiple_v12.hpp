@@ -2,6 +2,7 @@
 
 #include <boost/interprocess/managed_mapped_file.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
+#include <boost/unordered/concurrent_flat_set.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <boost/container_hash/hash.hpp>
@@ -261,19 +262,19 @@ private:
 };
 
 // Deferred deletion entry
-struct deferred_deletion_entry {
+struct deferred_entry {
     utxo_key_t key;
     uint32_t height;
     
-    deferred_deletion_entry(utxo_key_t const& k, uint32_t h) 
+    deferred_entry(utxo_key_t const& k, uint32_t h) 
         : key(k), height(h) {}
     
     // Equality and hash for use in unordered_flat_set
-    bool operator==(deferred_deletion_entry const& other) const {
+    bool operator==(deferred_entry const& other) const {
         return key == other.key;
     }
     
-    friend std::size_t hash_value(deferred_deletion_entry const& entry) {
+    friend std::size_t hash_value(deferred_entry const& entry) {
         return boost::hash<utxo_key_t>{}(entry.key);
     }
 };
@@ -451,6 +452,7 @@ class utxo_db {
         size_t processing_runs = 0;
         std::chrono::milliseconds total_processing_time{0};
         std::map<size_t, size_t> deletions_by_depth; // depth -> count
+        std::map<size_t, size_t> lookups_by_depth; // depth -> count
     };
     
     // Estadísticas de elementos no encontrados
@@ -482,12 +484,18 @@ public:
         
         if (remove_existing && fs::exists(path)) {
             fs::remove_all(path);
+            fs::create_directories(path);
         }
-        fs::create_directories(path);
+        
+        if ( ! fs::exists(path)) {
+            log_print("Error: Database path does not exist: {}\n", path);
+            throw std::runtime_error("Database path does not exist");
+        }
         
         // Configure file cache with base path
         file_cache_ = file_cache(std::string(path));
         
+        //TODO: should read this from a config file if the DB already exists
         static_assert(IdxN == 4); // if not, we have to change the following code ...
         min_buckets_ok_[0] = find_optimal_buckets<0>("./optimal", file_sizes[0], 7864304);
         log_print("Optimal number of buckets for container {} and file size {}: {}\n", 0, file_sizes[0], min_buckets_ok_[0]);
@@ -570,13 +578,23 @@ public:
     
     // Clean find interface
     std::optional<std::vector<uint8_t>> find(utxo_key_t const& key, uint32_t height) {
+        size_t search_depth = 0;
         // Try current version first
         if (auto res = find_in_latest_version(key, height); res) {
             return res;
         }
+        ++search_depth;
+
+        // std::optional<std::vector<uint8_t>> find_in_cached_files_only(utxo_key_t const& key, uint32_t height, size_t& search_depth) {
+        if (auto res = find_in_cached_files_only(key, height, search_depth); res) {
+            return res;
+        }
         
+        add_to_deferred_lookups(key, height);
+        return std::nullopt;
+
         // Search previous versions
-        return find_in_previous_versions(key, height);
+        // return find_in_previous_versions(key, height);
     }
     
 
@@ -742,6 +760,10 @@ public:
         return deferred_deletions_.size();
     }
 
+    size_t deferred_lookups_size() const {
+        return deferred_lookups_.size();
+    }
+
     // Get cache statistics
     float get_cache_hit_rate() const {
         return file_cache_.get_hit_rate();
@@ -857,6 +879,117 @@ public:
         return {successful_deletions, std::move(failed_deletions)};
     }
     
+
+
+
+    // Process ALL deferred lookups - must complete processing entire queue
+    // Not thread safe, must be called from a single thread
+    std::pair<boost::unordered_flat_map<utxo_key_t, std::vector<uint8_t>>, std::vector<utxo_key_t>> process_pending_lookups() {
+        if (deferred_lookups_.empty()) return {};
+        boost::unordered_flat_map<utxo_key_t, std::vector<uint8_t>> successful_lookups;
+        
+        auto const start_time = std::chrono::steady_clock::now();
+        ++deferred_stats_.processing_runs;
+        
+        size_t initial_size = deferred_lookups_.size();
+        log_print("Processing ALL {} deferred lookups - MUST complete entirely\n", initial_size);
+                
+        // Phase 1: Process ALL cached files first to maximize cache efficiency
+        auto cached_files = file_cache_.get_cached_files();
+        if ( ! cached_files.empty()) {
+            log_print("Phase 1: Processing {} cached files for {} deferred lookups...\n", 
+                     cached_files.size(), deferred_lookups_.size());
+            
+            // Sort cached files by container index and version (most recent first within each container)
+            std::ranges::sort(cached_files, [](auto const& a, auto const& b) {
+                if (a.first != b.first) return a.first < b.first;
+                return a.second > b.second; // Most recent version first
+            });
+            
+            // Process each cached file
+            for (auto const& [container_index, version] : cached_files) {
+                if (deferred_lookups_.empty()) break;
+                process_deferred_lookups_in_file(container_index, version, true, successful_lookups);
+            }
+        }
+        
+        // Phase 2: Process ALL remaining files systematically
+        if ( ! deferred_lookups_.empty()) {
+            log_print("Phase 2: Opening new files for {} remaining deferred lookups...\n", 
+                     deferred_lookups_.size());
+            
+            // Get already processed versions to avoid redundant work
+            std::array<std::set<size_t>, IdxN> processed_versions;
+            for (auto const& [container_index, version] : cached_files) {
+                processed_versions[container_index].insert(version);
+            }
+            
+            // Process each container systematically
+            for_each_index<IdxN>([&](auto I) {
+                if (deferred_lookups_.empty()) return;
+                if (current_versions_[I.value] == 0) return; // No previous versions
+                
+                // Process versions from latest-1 down to 0, skipping already processed ones
+                for (size_t v = current_versions_[I.value] - 1; v != SIZE_MAX; --v) {
+                    if (deferred_lookups_.empty()) break;
+                    
+                    // Skip if already processed in Phase 1
+                    if (processed_versions[I.value].contains(v)) {
+                        continue;
+                    }
+                    
+                    auto file_name = fmt::format(data_file_format, db_path_.string(), I.value, v);
+                    if ( ! fs::exists(file_name)) {
+                        continue;
+                    }
+                    
+                    process_deferred_lookups_in_file(I.value, v, false, successful_lookups);
+                }
+            });
+        }
+        
+        // Collect any remaining UTXOs that couldn't be deleted (these are ERRORS)
+        std::vector<utxo_key_t> failed_lookups;
+        failed_lookups.reserve(deferred_lookups_.size());
+        
+        // for (auto const& entry : deferred_lookups_) {
+        //     failed_lookups.push_back(entry.key);
+        // }
+        deferred_lookups_.visit_all([&](auto const& x) {
+            failed_lookups.push_back(x.key);
+        });
+        
+        // Clear the deferred lookups since we've processed everything we can
+        deferred_lookups_.clear();
+        
+        log_print("Deferred lookup processing complete: {} successful, {} FAILED (errors)\n", 
+                 successful_lookups.size(), failed_lookups.size());
+        
+        if ( ! failed_lookups.empty()) {
+            log_print("ERROR: {} UTXOs could not be deleted - these are processing errors!\n", 
+                     failed_lookups.size());
+        }        
+        
+        // After processing
+        auto const end_time = std::chrono::steady_clock::now();
+        deferred_stats_.total_processing_time += 
+            std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        
+        deferred_stats_.successfully_processed += successful_lookups.size();
+        deferred_stats_.failed_to_delete += failed_lookups.size();
+        
+        // Update failed deletes per container
+        for (auto const& key : failed_lookups) {
+            // We don't know the exact container, so increment all
+            for (size_t i = 0; i < IdxN; ++i) {
+                ++container_stats_[i].failed_deletes;
+            }
+        }
+        
+        return {std::move(successful_lookups), std::move(failed_lookups)};
+    }
+    
+
 
     struct db_statistics {
         // Global stats
@@ -1066,7 +1199,8 @@ private:
     std::array<std::vector<file_metadata>, IdxN> file_metadata_;
     file_cache file_cache_ = file_cache(""); // number of cached files. TODO: change
     search_stats search_stats_;
-    boost::unordered_flat_set<deferred_deletion_entry> deferred_deletions_;
+    boost::unordered_flat_set<deferred_entry> deferred_deletions_;
+    boost::concurrent_flat_set<deferred_entry> deferred_lookups_;
     
     // Agregar estos miembros a la clase
     std::array<container_stats, IdxN> container_stats_;
@@ -1177,7 +1311,7 @@ private:
         std::optional<std::vector<uint8_t>> result;
         
         for_each_index<IdxN>([&](auto I) {
-            if (!result) {
+            if ( ! result) {
                 auto& map = container<I>();
                 if (auto it = map.find(key); it != map.end()) {
                     search_stats_.add_record(height, it->second.block_height, 0, false, true, 'f');
@@ -1317,6 +1451,60 @@ private:
         return result;
     }    
 
+    // Find in cached files only
+    std::optional<std::vector<uint8_t>> find_in_cached_files_only(utxo_key_t const& key, uint32_t height, size_t& search_depth) {
+        auto cached_files = file_cache_.get_cached_files();
+        
+        for (auto const& [container_index, version] : cached_files) {
+            ++search_depth;
+            
+            // Dispatch to correct container type
+            auto process_file = [&]<size_t Index>(std::integral_constant<size_t, Index>) -> std::optional<std::vector<uint8_t>> {
+                if (file_cache_.is_cached(container_index, version)) {
+                    try {
+                        auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(container_index, version);
+                        
+                        if (auto it = map.find(key); it != map.end()) {
+                            search_stats_.add_record(height, it->second.block_height, current_versions_[Index] - version, cache_hit, true, 'f');
+                            auto data = it->second.get_data();
+                            return std::vector<uint8_t>(data.begin(), data.end());
+                        }
+                    } catch (std::exception const& e) {
+                        log_print("Error accessing cached file ({}, v{}): {}\n", 
+                                container_index, version, e.what());
+                    }
+
+                }
+                return std::nullopt;
+            };
+            
+            switch (container_index) {
+                case 0: {
+                    auto result = process_file(std::integral_constant<size_t, 0>{});
+                    if (result) return result;
+                    break;
+                }
+                case 1: {
+                    auto result = process_file(std::integral_constant<size_t, 1>{});
+                    if (result) return result;
+                    break;
+                }
+                case 2: {
+                    auto result = process_file(std::integral_constant<size_t, 2>{});
+                    if (result) return result;
+                    break;
+                }
+                case 3: {
+                    auto result = process_file(std::integral_constant<size_t, 3>{});
+                    if (result) return result;
+                    break;  
+                }
+            }
+        }
+        
+        return std::nullopt;
+    }    
+
     // Deferred deletion helpers
     void add_to_deferred_deletions(utxo_key_t const& key, uint32_t height) {
         auto [it, inserted] = deferred_deletions_.emplace(key, height);
@@ -1329,6 +1517,14 @@ private:
             for (size_t i = 0; i < IdxN; ++i) {
                 ++container_stats_[i].deferred_deletes;
             }
+        }
+    }
+
+    void add_to_deferred_lookups(utxo_key_t const& key, uint32_t height) {
+        auto inserted = deferred_lookups_.emplace(key, height);
+        if (inserted) {
+            ++deferred_stats_.total_deferred;
+            deferred_stats_.max_queue_size = std::max(deferred_stats_.max_queue_size, deferred_lookups_.size());
         }
     }
     
@@ -1428,6 +1624,54 @@ private:
             case 2: return process_with_container(std::integral_constant<size_t, 2>{});
             case 3: return process_with_container(std::integral_constant<size_t, 3>{});
             default: return 0;
+        }
+    }
+
+
+    // Process deferred lookups for a specific file (container index and version)
+    void process_deferred_lookups_in_file(size_t container_index, size_t version, bool is_cached, boost::unordered_flat_map<utxo_key_t, std::vector<uint8_t>>& successful_lookups) {
+        if (deferred_lookups_.empty()) return;
+        
+        auto process_with_container = [&]<size_t Index>(std::integral_constant<size_t, Index>) {
+            try {
+                auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(container_index, version);
+                
+                deferred_lookups_.erase_if([&](auto const& x) {
+                    auto it = map.find(x.key);
+                    if (it != map.end()) {
+                        size_t depth = current_versions_[Index] - version;
+                        
+                        // Track depth of deferred lookups
+                        ++deferred_stats_.lookups_by_depth[depth];
+                        
+                        search_stats_.add_record(x.height, it->second.block_height, depth, cache_hit, true, 'f');
+                        
+                        // Update container stats
+                        --container_stats_[Index].deferred_deletes;
+                        
+                        auto data = it->second.get_data();
+                        successful_lookups.emplace(x.key, std::vector<uint8_t>(data.begin(), data.end()));
+                        return true; // Remove this entry
+                    }
+                    return false; // Keep this entry
+                });
+
+                if (successful_lookups.size() > 0) {
+                    log_print("Processed {} lookups from {}({}, v{}) - {} remaining\n", 
+                            successful_lookups.size(), is_cached ? "cached " : "", 
+                            container_index, version, deferred_lookups_.size());
+                }   
+            } catch (std::exception const& e) {
+                log_print("Error processing file ({}, v{}): {}\n", container_index, version, e.what());
+            }
+        };
+        
+        // Dispatch to the correct container type
+        switch (container_index) {
+            case 0: process_with_container(std::integral_constant<size_t, 0>{}); break;
+            case 1: process_with_container(std::integral_constant<size_t, 1>{}); break;
+            case 2: process_with_container(std::integral_constant<size_t, 2>{}); break;
+            case 3: process_with_container(std::integral_constant<size_t, 3>{}); break;
         }
     }
 
