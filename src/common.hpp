@@ -89,13 +89,16 @@ std::vector<bytes_t> get_blocks_raw_from_n(std::filesystem::path blocks_filename
 using TransactionReadResult = std::tuple<
     std::vector<kth::domain::chain::transaction>,
     size_t,
-    size_t>;
+    size_t,
+    bool>;
 
 TransactionReadResult get_n_transactions(std::filesystem::path const& path, size_t block_from, size_t tx_from, size_t n) {
     constexpr size_t file_step = 10'000;    //TODO: hardcoded values
     // constexpr size_t file_max = 780'000;
     constexpr size_t file_max = 20'000;
     constexpr size_t file_max_end = file_max + file_step - 1; 
+
+    bool stop = false;
 
     std::vector<kth::domain::chain::transaction> transactions;
     transactions.reserve(n);
@@ -109,9 +112,11 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
     while (true) {
         if (current_file_start > file_max) {
+            stop = true;
             break;
         }
         if (transactions.size() >= n) {
+            stop = false;
             break;
         }
         size_t const current_file_end = current_file_start + file_step - 1;
@@ -169,7 +174,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
                 blk.reset();
                 log_print("(1) Returning transactions_collected: {} - block {} - tx {}\n", transactions.size(), next_block_index, next_tx_index);
-                return {std::move(transactions), next_block_index, next_tx_index};
+                return {std::move(transactions), next_block_index, next_tx_index, false};
             }
             blk.reset();
             ++global_block_index;
@@ -179,6 +184,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         log_print("current_file_start: {}\n", current_file_start);
         if (current_file_start > file_max_end) {
             log_print("Reached end of files, stopping\n");
+            stop = true;
             break;
         }
         current_block_index = 0;
@@ -186,7 +192,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
     log_print("Total transactions collected: {}\n", transactions.size());
     log_print("(2) Returning transactions_collected: {} - file: {} - block {} - tx {}\n", transactions.size(), current_file_start, current_block_index, 0);
-    return {std::move(transactions), block_from, 0};
+    return {std::move(transactions), block_from, 0, stop};
 }
 
 #include <fmt/core.h>
@@ -255,8 +261,9 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
     while (true) {
         size_t const transaction_count = dis(gen);
         log_print("Reading {} real transactions from files ...\n", transaction_count);
-        auto [transactions, tmp_block_from, tmp_tx_from] = get_n_transactions(path, block_from, tx_from, transaction_count);
+        auto [transactions, tmp_block_from, tmp_tx_from, stop] = get_n_transactions(path, block_from, tx_from, transaction_count);
         log_print("Pre-rocessing {} transactions. Calculating number of inputs, outputs, tx hashes,...\n", transactions.size());
+        log_print("stop: {}\n", stop);
 
         if (transactions.empty()) {
             log_print("No more transactions to read\n");
@@ -314,6 +321,12 @@ void process(std::filesystem::path const& path, ProcessTxs process_txs, PostProc
 
         block_from = tmp_block_from;
         tx_from = tmp_tx_from;
+
+        if (stop) {
+            log_print("Stopping processing as requested\n");
+            break;
+        }
+        log_print("Continuing to next batch of transactions...\n");
     }
     log_print("Total transactions: {}\n", total_transactions);
     log_print("Total inputs:       {}\n", input_count);
