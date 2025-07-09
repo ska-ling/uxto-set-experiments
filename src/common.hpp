@@ -94,9 +94,7 @@ using TransactionReadResult = std::tuple<
 TransactionReadResult get_n_transactions(std::filesystem::path const& path, size_t block_from, size_t tx_from, size_t n) {
     constexpr size_t file_step = 10'000;    //TODO: hardcoded values
     // constexpr size_t file_max = 780'000;
-    // constexpr size_t file_max = 789'999;
     constexpr size_t file_max = 20'000;
-    // constexpr size_t file_max = 29'999;
 
     std::vector<kth::domain::chain::transaction> transactions;
     transactions.reserve(n);
@@ -109,23 +107,17 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
     size_t global_block_index = block_from;
 
     while (true) {
-        // Check exit conditions first
-        if (current_file_start > file_max || transactions.size() >= n) {
+        if (current_file_start > file_max) {
             break;
         }
-        
-        // Calculate the actual file end based on file naming convention
-        // Files are named as: block-raw-X-Y.csv where Y = X + file_step - 1
-        // The file name always uses the full range, but we may only process up to file_max
-        size_t const file_end_name = current_file_start + file_step - 1;
-        size_t const blocks_to_process_end = std::min(current_file_start + file_step - 1, file_max);
-        
-        std::filesystem::path const blocks_file = path / fmt::format("block-raw-{}-{}.csv", current_file_start, file_end_name);
+        if (transactions.size() >= n) {
+            break;
+        }
+        size_t const current_file_end = std::min(current_file_start + file_step - 1, file_max);
+        std::filesystem::path const blocks_file = path / fmt::format("block-raw-{}-{}.csv", current_file_start, current_file_end);
         log_print("Processing file {}\n", blocks_file);
 
-        // Calculate how many blocks we can read from this file
-        size_t const blocks_available_in_file = blocks_to_process_end - current_file_start - current_block_index + 1;
-        size_t const blocks_to_read = std::min(remaining(), blocks_available_in_file);
+        size_t const blocks_to_read = std::min(remaining(), file_step);
         auto blocks_raw = get_blocks_raw_from_n(blocks_file, current_block_index, blocks_to_read);
 
         for (size_t i = 0; i < blocks_raw.size(); ++i) {
