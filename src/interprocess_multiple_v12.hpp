@@ -1562,8 +1562,12 @@ private:
                 log_print("Failed with {} buckets: {}\n", mid, e.what());
                 right = mid - 1;
             } catch (boost::interprocess::lock_exception const& e) {
-                log_print("boost::interprocess::lock_exception");
-                std::terminate();
+                log_print("Lock exception with {} buckets: {}\n", mid, e.what());
+                // Treat lock exceptions as allocation failures and reduce the bucket count
+                right = mid - 1;
+            } catch (std::exception const& e) {
+                log_print("General exception with {} buckets: {}\n", mid, e.what());
+                right = mid - 1;
             }
 
             // Eliminar el archivo temporal en cada intento
