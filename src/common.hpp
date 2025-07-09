@@ -113,7 +113,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
         if (transactions.size() >= n) {
             break;
         }
-        size_t const current_file_end = std::min(current_file_start + file_step - 1, file_max);
+        size_t const current_file_end = current_file_start + file_step - 1;
         std::filesystem::path const blocks_file = path / fmt::format("block-raw-{}-{}.csv", current_file_start, current_file_end);
         log_print("Processing file {}\n", blocks_file);
 
