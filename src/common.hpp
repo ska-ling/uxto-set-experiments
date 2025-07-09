@@ -94,7 +94,9 @@ using TransactionReadResult = std::tuple<
 TransactionReadResult get_n_transactions(std::filesystem::path const& path, size_t block_from, size_t tx_from, size_t n) {
     constexpr size_t file_step = 10'000;    //TODO: hardcoded values
     // constexpr size_t file_max = 780'000;
-    constexpr size_t file_max = 20'000;
+    // constexpr size_t file_max = 789'999;
+    // constexpr size_t file_max = 20'000;
+    constexpr size_t file_max = 29'999;
 
     std::vector<kth::domain::chain::transaction> transactions;
     transactions.reserve(n);
