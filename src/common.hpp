@@ -95,6 +95,7 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
     constexpr size_t file_step = 10'000;    //TODO: hardcoded values
     // constexpr size_t file_max = 780'000;
     constexpr size_t file_max = 20'000;
+    constexpr size_t file_max_end = file_max + file_step - 1; 
 
     std::vector<kth::domain::chain::transaction> transactions;
     transactions.reserve(n);
@@ -176,6 +177,10 @@ TransactionReadResult get_n_transactions(std::filesystem::path const& path, size
 
         current_file_start += file_step;
         log_print("current_file_start: {}\n", current_file_start);
+        if (current_file_start > file_max_end) {
+            log_print("Reached end of files, stopping\n");
+            break;
+        }
         current_block_index = 0;
     }
 
