@@ -39,79 +39,6 @@ bool is_op_return(kth::domain::chain::output const& output, uint32_t height) {
     return output.script().bytes()[0] == 0x6a; // OP_RETURN
 }
 
-template <typename Container>
-// Container could be boost::unordered_flat_map or boost::unordered_flat_set
-bool check_buckets_for(size_t n, size_t try_buckets) {
-    log_print("Checking buckets for {} elements in container type with {} buckets...\n", n, try_buckets);
-    Container cont(try_buckets);
-    log_print("Container created with size: {}, buckets: {}\n", cont.size(), cont.bucket_count());
-    if (cont.bucket_count() == 0) {
-        log_print("Container has no buckets, cannot proceed.\n");
-        return false; // Cannot proceed if no buckets
-    }
-
-    // float next_load = float(cont.size() + 1) / float(cont.bucket_count());
-    float const next_load = float(n) / float(cont.bucket_count());
-    log_print("Next load factor: {:.2f}\n", next_load);
-    log_print("Max load factor: {:.2f}\n", cont.max_load_factor());
-    log_print("Max load factor 95%: {:.2f}\n", cont.max_load_factor() * 0.95f);
-    if (next_load >= cont.max_load_factor() * 0.95f) {
-        return false;
-    }
-    return true;
-}
-
-
-template <typename Container>
-// Container could be boost::unordered_flat_map or boost::unordered_flat_set
-size_t find_optimal_buckets_for(size_t n) {
-    log_print("Finding optimal buckets for {} elements in container\n", n);
-    if (n == 0) {
-        log_print("No elements to insert, returning 0 buckets.\n");
-        return 0; // No elements, no buckets needed
-    }
-
-    log_print("Checking for 0 buckets...\n");
-    // if (check_buckets_for<Container>(n, 0)) {
-    //     log_print("0 buckets are sufficient for {} elements.\n", n);
-    //     return 0; // 0 buckets are sufficient
-    // }
-
-    // do like a binary seacrch for the number of buckets
-    size_t left = 1;
-    size_t right = n * 2; // Adjust this based on expected size
-    size_t best_buckets = left;
-    
-    while (left <= right) {
-        size_t mid = left + (right - left) / 2;
-        log_print("Trying with {} buckets...\n", mid);
-
-        if (check_buckets_for<Container>(n, mid)) {
-            log_print("Buckets {} are sufficient for {} elements.\n", mid, n);
-            right = mid - 1; // Try fewer buckets
-            best_buckets = mid; // Found sufficient buckets
-        } else {
-            log_print("Buckets {} are NOT sufficient for {} elements.\n", mid, n);
-            left = mid + 1; // Try for more buckets
-        }
-
-    }
-
-    log_print("Optimal number of buckets: {}\n", best_buckets);
-    return best_buckets;
-
-
-
-    // size_t try_buckets = n / 2;
-    // while (true) {
-    //     log_print("Trying with {} buckets...\n", try_buckets);
-    //     if (check_buckets_for<Container>(n, try_buckets)) {
-    //         log_print("Found sufficient buckets: {}\n", try_buckets);
-    //         return try_buckets; // Found sufficient buckets
-    //     }
-    // }
-}
-
 size_t calculate_buckets(size_t n) {
     if (n == 0)
         return 0;
@@ -130,88 +57,11 @@ size_t calculate_buckets(size_t n) {
     return bucket_count;
 }
 
-
-// // Modified return type
-// std::tuple<to_insert_utxos_t, to_delete_utxos_t, op_return_utxos_t, size_t, size_t> 
-// process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
-
-//     size_t op_return_outputs_identified = 0;
-//     to_insert_utxos_t to_insert;
-//     op_return_utxos_t op_returns_to_store; // Set for OP_RETURN UTXO keys
-
-//     // insert all the outputs
-//     for (auto const& tx : txs) {
-//         auto tx_hash = tx.hash();
-//         utxo_key_t current_key; 
-//         std::copy(tx_hash.begin(), tx_hash.end(), current_key.begin());
-
-//         size_t output_index = 0;
-//         for (auto&& output : tx.outputs()) {
-//             // copy the output index into the key
-//             std::copy(reinterpret_cast<const uint8_t*>(&output_index), 
-//                       reinterpret_cast<const uint8_t*>(&output_index) + 4, 
-//                       current_key.end() - 4);
-            
-//             if (is_op_return(output, height)) {
-//                 // ++op_return_outputs_identified;
-//                 // op_returns_to_store.emplace(std::move(current_key)); // Add key to OP_RETURN set
-//                 // log_print("Identified OP_RETURN output in transaction, height {}.\n", height);
-//                 // utxo::print_key(current_key); // If needed for debugging
-//             } else {
-//                 to_insert.emplace(std::move(current_key), std::move(output)); // Add to regular inserts
-//             }
-//             ++output_index;
-//         }
-//     }
-
-//     size_t in_block_utxos = 0;
-//     to_delete_utxos_t to_delete;
-
-//     // remove the inputs
-//     for (auto const& tx : txs) {
-//         for (auto&& input : tx.inputs()) {
-//             auto const& prev_out = input.previous_output();
-//             auto const& hash = prev_out.hash();
-//             auto const idx = prev_out.index();
-//             if (idx == std::numeric_limits<uint32_t>::max()) {
-//                 continue; 
-//             }
-
-//             utxo_key_t key_to_remove;
-//             std::copy(hash.begin(), hash.end(), key_to_remove.begin());
-//             std::copy(reinterpret_cast<const uint8_t*>(&idx), 
-//                       reinterpret_cast<const uint8_t*>(&idx) + 4, 
-//                       key_to_remove.end() - 4);
-
-//             auto const removed = to_insert.erase(key_to_remove);
-//             if (removed == 0) {
-//                 // Not spent from this block's new outputs, so add to external deletes.
-//                 // The DB will check if it's an OP_RETURN or a regular UTXO.
-//                 to_delete.emplace(std::move(key_to_remove), std::move(input));
-//             } else {
-//                 in_block_utxos += removed;
-//             }
-//         }
-//     }
-
-//     return {
-//         std::move(to_insert), 
-//         std::move(to_delete),
-//         std::move(op_returns_to_store), // Return the new set
-//         in_block_utxos,
-//         op_return_outputs_identified
-//     };
-// }
-
-
-
 float insert_factor = 6.0f;
 float delete_factor = 3.0f;
 float op_return_factor = 0.2f; // Factor for OP_RETURN UTXOs
 constexpr float alpha = 0.1f;
 
-// Modified return type
-// std::tuple<to_insert_utxos_t, to_delete_utxos_t, op_return_utxos_t, size_t, size_t>
 std::tuple<to_insert_utxos_t, to_delete_utxos_t, size_t>
 process_in_block(std::vector<kth::domain::chain::transaction>& txs, uint32_t height) {
 
@@ -380,21 +230,6 @@ void close_log_file() {
 
 int main(int argc, char** argv) {
 
-    // constexpr size_t max_txs = 3'000'000; // aproximate maximum number of transactions to process
-    // constexpr float factor = 0.75f;
-    // constexpr size_t n = size_t(max_txs * factor); // 75% of max_txs
-    // log_print("{} - {} - {}\n", max_txs, factor, n);
-    // log_print("Finding optimal buckets for {} elements...\n", n);
-
-    // // auto tmp = check_buckets_for<to_insert_utxos_t>(n, 1966079);
-
-    // find_optimal_buckets_for<to_insert_utxos_t>(n);
-
-    // auto buckets = calculate_buckets(n);
-    // log_print("Calculated buckets: {}\n", buckets);
-    // return 0;
-
-
     std::string_view const path = "/home/fernando/dev/utxo-experiments/src";
     init_log_file("bench_db_apple_1");
 
@@ -405,15 +240,6 @@ int main(int argc, char** argv) {
     size_t height = 0;
 
     utxo_db db;
-
-    // Compactación
-    // log_print("Opening DB ...\n");
-    // db.configure("utxo_interprocess_multiple", false); 
-    // log_print("DB opened with size: {}\n", db.size());
-    // db.compact_all();
-    // log_print("DB compacted, size: {}\n", db.size());
-    // db.close();
-    // return 0; // Exit early for testing purposes
 
     log_print("Opening DB ...\n");
     db.configure("utxo_interprocess_multiple", true); 
@@ -428,23 +254,11 @@ int main(int argc, char** argv) {
             auto const [
                 to_insert, 
                 to_delete,
-                // op_returns_to_store, // Receive the new set
                 in_block_utxos_count
-                // op_return_outputs_count // Renamed from skipped_op_return
             ] = process_in_block(txs, height);
 
             log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}. In-block spends: {}.\n", 
                       to_insert.size(), to_delete.size(), in_block_utxos_count);
-
-            // log_print("Processed block. Regular Inserts: {}, Deletes from DB: {}, OP_RETURNs created: {}. In-block spends: {}.\n", 
-            //     to_insert.size(), to_delete.size(), op_returns_to_store.size(), in_block_utxos_count);
-
-// #if defined(DBKIND) && DBKIND == 0 // This new feature is for the custom DB
-//             if ( ! op_returns_to_store.empty()) {
-//                 log_print("Inserting {} OP_RETURN UTXO keys into dedicated store...\n", op_returns_to_store.size());
-//                 db.insert_op_returns(op_returns_to_store, height);
-//             }
-// #endif
 
             log_print("deleting {} inputs...\n", to_delete.size());
             // first, delete the inputs
@@ -456,7 +270,6 @@ int main(int argc, char** argv) {
                     utxo::print_key(k);
                     std::terminate(); // or handle the error as needed
                 }
-
 #endif
             }
 
@@ -517,6 +330,8 @@ int main(int argc, char** argv) {
     log_print("Processing completed.\n");
     db.print_statistics();
 
+    db.compact_all();
+
     log_print("Closing DB... \n");
     db.close();
     log_print("DB closed ...\n");
@@ -530,3 +345,4 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
