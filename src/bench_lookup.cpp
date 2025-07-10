@@ -216,6 +216,15 @@ struct LookupBenchmarkResult {
 LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_items, size_t thread_count) {
     log_print("Starting lookup benchmark with {} threads, {} items...\n", thread_count, lookup_items.size());
     
+    // Clear any leftover deferred lookups before starting
+    #if defined(DBKIND) && DBKIND == 0
+    if (db.deferred_lookups_size() > 0) {
+        log_print("Warning: Clearing {} leftover deferred lookups before benchmark\n", db.deferred_lookups_size());
+        auto [leftover_successful, leftover_failed] = db.process_pending_lookups();
+        log_print("Cleared {} successful and {} failed leftover lookups\n", leftover_successful.size(), leftover_failed.size());
+    }
+    #endif
+    
     std::atomic<size_t> successful_lookups{0};
     std::atomic<size_t> failed_lookups{0};
     std::atomic<size_t> unexpected_results{0};
@@ -223,41 +232,53 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
     size_t items_per_thread = lookup_items.size() / thread_count;
     size_t remaining_items = lookup_items.size() % thread_count;
     
-    std::vector<std::thread> threads;
-    threads.reserve(thread_count);
+    // Define the worker lambda outside the thread creation
+    auto worker = [&db, &lookup_items, &successful_lookups, &failed_lookups, &unexpected_results](size_t start_idx, size_t end_idx) {
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            const auto& item = lookup_items[i];
+            
+            auto result = db.find(item.key, 0); // height parameter not used for lookups
+            bool found = (result.has_value());
+            
+            if (found) {
+                // Found directly in current version or cached files
+                successful_lookups.fetch_add(1, std::memory_order_relaxed);
+            } 
+            // If not found, it might be added to deferred lookups
+            // We'll process the final results after deferred processing
+        }
+    };
     
-    auto start_time = std::chrono::high_resolution_clock::now();
+    auto const start_time = std::chrono::high_resolution_clock::now();
     
-    for (size_t t = 0; t < thread_count; ++t) {
-        size_t start_idx = t * items_per_thread;
-        size_t end_idx = start_idx + items_per_thread;
-        if (t == thread_count - 1) {
-            end_idx += remaining_items; // Last thread gets remaining items
+    if (thread_count == 1) {
+        // Single-threaded execution in main thread
+        worker(0, lookup_items.size());
+    } else {
+        // Multi-threaded execution: create N-1 threads, main thread does the last chunk
+        std::vector<std::thread> threads;
+        threads.reserve(thread_count - 1);
+        
+        // Create N-1 threads
+        for (size_t t = 0; t < thread_count - 1; ++t) {
+            size_t start_idx = t * items_per_thread;
+            size_t end_idx = start_idx + items_per_thread;
+            
+            threads.emplace_back(worker, start_idx, end_idx);
         }
         
-        threads.emplace_back([&db, &lookup_items, &successful_lookups, &failed_lookups, &unexpected_results, start_idx, end_idx]() {
-            for (size_t i = start_idx; i < end_idx; ++i) {
-                const auto& item = lookup_items[i];
-                
-                auto result = db.find(item.key, 0); // height parameter not used for lookups
-                bool found = (result.has_value());
-                
-                if (found) {
-                    // Found directly in current version or cached files
-                    successful_lookups.fetch_add(1, std::memory_order_relaxed);
-                } 
-                // If not found, it might be added to deferred lookups
-                // We'll process the final results after deferred processing
-            }
-        });
+        // Main thread processes the last chunk (including any remaining items)
+        size_t main_start_idx = (thread_count - 1) * items_per_thread;
+        size_t main_end_idx = lookup_items.size(); // This includes remaining_items
+        worker(main_start_idx, main_end_idx);
+        
+        // Wait for all worker threads to complete
+        for (auto& thread : threads) {
+            thread.join();
+        }
     }
     
-    // Wait for all threads to complete
-    for (auto& thread : threads) {
-        thread.join();
-    }
-    
-    auto end_time = std::chrono::high_resolution_clock::now();
+    auto const end_time = std::chrono::high_resolution_clock::now();
     double direct_lookup_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
     double total_time_ns = direct_lookup_time_ns;
     double deferred_time_ns = 0.0;
@@ -269,9 +290,9 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
     if (deferred_count > 0) {
         log_print("Processing {} deferred lookups...\n", deferred_count);
         
-        auto deferred_start = std::chrono::high_resolution_clock::now();
+        auto const deferred_start = std::chrono::high_resolution_clock::now();
         auto [successful_deferred, failed_deferred] = db.process_pending_lookups();
-        auto deferred_end = std::chrono::high_resolution_clock::now();
+        auto const deferred_end = std::chrono::high_resolution_clock::now();
         
         deferred_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(deferred_end - deferred_start).count();
         total_time_ns += deferred_time_ns; // Add deferred processing time to total
@@ -289,6 +310,12 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
         size_t total_found = successful_lookups.load();
         size_t total_not_found = lookup_items.size() - total_found;
         failed_lookups.store(total_not_found, std::memory_order_relaxed);
+        
+        // Verify the deferred queue is now empty
+        if (db.deferred_lookups_size() > 0) {
+            log_print("ERROR: Deferred lookups queue not empty after processing! Size: {}\n", db.deferred_lookups_size());
+            std::terminate();
+        }
         
         // Note: We don't update unexpected_results for deferred lookups since we don't track
         // their expected outcomes separately
@@ -331,8 +358,8 @@ void close_log_file();
 // Initialize the log file with a timestamped name
 void init_log_file(const std::string& benchmark_name) {
     // Create a timestamped filename
-    auto now = std::chrono::system_clock::now();
-    auto now_time_t = std::chrono::system_clock::to_time_t(now);
+    auto const now = std::chrono::system_clock::now();
+    auto const now_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
     ss << "benchmark_" << benchmark_name << "_" 
        << std::put_time(std::localtime(&now_time_t), "%Y%m%d_%H%M%S") << ".log";
@@ -423,6 +450,23 @@ int main() {
         for (size_t thread_count = MIN_THREADS; thread_count <= MAX_THREADS; thread_count *= 2) {
             auto result = benchmark_lookups(db, preprocess_result.lookup_items, thread_count);
             all_results.push_back(result);
+            
+            // Strict validation: Check if expected failed lookups match actual failed lookups
+            size_t expected_failed = preprocess_result.failed_lookups;
+            size_t actual_failed = result.failed_lookups;
+            
+            log_print("\nValidation Results (Iteration {}, {} threads):\n", iteration + 1, thread_count);
+            log_print("  Expected failed lookups: {}\n", expected_failed);
+            log_print("  Actual failed lookups: {}\n", actual_failed);
+            
+            if (expected_failed != actual_failed) {
+                log_print("ERROR: Expected failed lookups ({}) != Actual failed lookups ({})\n", 
+                        expected_failed, actual_failed);
+                log_print("This indicates a serious issue with the benchmark logic or database state!\n");
+                std::terminate();
+            } else {
+                log_print("✓ Validation passed: Expected and actual failed lookups match\n");
+            }
             
             log_print("\nBenchmark Results (Iteration {}, {} threads):\n", iteration + 1, thread_count);
             log_print("  Total lookups: {}\n", format_si(result.total_lookups));
