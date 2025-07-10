@@ -216,24 +216,6 @@ struct LookupBenchmarkResult {
 LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_items, size_t thread_count) {
     log_print("Starting lookup benchmark with {} threads, {} items...\n", thread_count, lookup_items.size());
     
-    // Clear any leftover deferred lookups before starting
-    #if defined(DBKIND) && DBKIND == 0
-    size_t initial_deferred_size = db.deferred_lookups_size();
-    if (initial_deferred_size > 0) {
-        log_print("Warning: Clearing {} leftover deferred lookups before benchmark\n", initial_deferred_size);
-        auto [leftover_successful, leftover_failed] = db.process_pending_lookups();
-        log_print("Cleared {} successful and {} failed leftover lookups\n", leftover_successful.size(), leftover_failed.size());
-        
-        // Verify complete cleanup
-        size_t remaining_after_cleanup = db.deferred_lookups_size();
-        if (remaining_after_cleanup > 0) {
-            log_print("ERROR: Failed to clear deferred lookups! {} remaining after cleanup\n", remaining_after_cleanup);
-            std::terminate();
-        }
-    }
-    log_print("Starting benchmark with clean deferred queue (initial size: {})\n", db.deferred_lookups_size());
-    #endif
-    
     std::atomic<size_t> successful_lookups{0};
     std::atomic<size_t> failed_lookups{0};
     std::atomic<size_t> unexpected_results{0};
@@ -243,17 +225,10 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
     
     // Define the worker lambda outside the thread creation
     auto worker = [&db, &lookup_items, &successful_lookups, &failed_lookups, &unexpected_results](size_t start_idx, size_t end_idx) {
-        log_print("Worker processing items from {} to {}\n", start_idx, end_idx);
         for (size_t i = start_idx; i < end_idx; ++i) {
-            log_print("Processing item {} of {}\n", i + 1, lookup_items.size());
             const auto& item = lookup_items[i];
-            
             auto result = db.find(item.key, 0); // height parameter not used for lookups
-
-            bool found = (result.has_value());
-            log_print("  Found: {}\n", found);
-            
-            if (found) {
+            if (result) {
                 // Found directly in current version or cached files
                 successful_lookups.fetch_add(1, std::memory_order_relaxed);
             } 
