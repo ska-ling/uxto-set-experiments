@@ -586,10 +586,10 @@ public:
         }
         ++search_depth;
 
-        // std::optional<std::vector<uint8_t>> find_in_cached_files_only(utxo_key_t const& key, uint32_t height, size_t& search_depth) {
-        if (auto res = find_in_cached_files_only(key, height, search_depth); res) {
-            return res;
-        }
+        // // std::optional<std::vector<uint8_t>> find_in_cached_files_only(utxo_key_t const& key, uint32_t height, size_t& search_depth) {
+        // if (auto res = find_in_cached_files_only(key, height, search_depth); res) {
+        //     return res;
+        // }
         
         add_to_deferred_lookups(key, height);
         return std::nullopt;
