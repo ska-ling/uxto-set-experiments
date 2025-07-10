@@ -380,7 +380,7 @@ int main() {
 #endif
     
     // Get data path
-    path const blocks_path = "/Users/fernando/dev/scalingbitcoin/bitcoin-cash-data-downloader/blocks";
+    path const blocks_path = "/home/fernando/dev/utxo-experiments/src";
     if (!exists(blocks_path)) {
         log_print("Error: blocks path does not exist: {}\n", blocks_path);
         close_log_file();

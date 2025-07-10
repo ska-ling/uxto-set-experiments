@@ -94,7 +94,8 @@ using TransactionReadResult = std::tuple<
 
 TransactionReadResult get_n_transactions(std::filesystem::path const& path, size_t block_from, size_t tx_from, size_t n) {
     constexpr size_t file_step = 10'000;    //TODO: hardcoded values
-    constexpr size_t file_max = 740'000;
+    // constexpr size_t file_max = 740'000;
+    constexpr size_t file_max = 770'000;
     // constexpr size_t file_max = 20'000;
     constexpr size_t file_max_end = file_max + file_step - 1; 
 
