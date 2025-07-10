@@ -247,7 +247,6 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
         for (size_t i = start_idx; i < end_idx; ++i) {
             log_print("Processing item {} of {}\n", i + 1, lookup_items.size());
             const auto& item = lookup_items[i];
-            log_print("  Key: {}\n", fmt::join(item.key, ", "));
             
             auto result = db.find(item.key, 0); // height parameter not used for lookups
 
@@ -345,13 +344,6 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
         failed_lookups.store(total_not_found, std::memory_order_relaxed);
         log_print("No deferred lookups to process. Direct results: {} found, {} not found\n",
                  total_found, total_not_found);
-    }
-        // their expected outcomes separately
-    } else {
-        // No deferred lookups to process - calculate failed lookups directly
-        size_t total_found = successful_lookups.load();
-        size_t total_not_found = lookup_items.size() - total_found;
-        failed_lookups.store(total_not_found, std::memory_order_relaxed);
     }
 #else
     // For LevelDB or when custom DB is not being used
