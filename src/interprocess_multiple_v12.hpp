@@ -1316,7 +1316,7 @@ private:
             if ( ! result) {
                 auto& map = container<I>();
                 if (auto it = map.find(key); it != map.end()) {
-                    search_stats_.add_record(height, it->second.block_height, 0, false, true, 'f');
+                    // search_stats_.add_record(height, it->second.block_height, 0, false, true, 'f');
                     auto data = it->second.get_data();
                     result = std::vector<uint8_t>(data.begin(), data.end());
                 }
@@ -1524,10 +1524,10 @@ private:
 
     void add_to_deferred_lookups(utxo_key_t const& key, uint32_t height) {
         auto inserted = deferred_lookups_.emplace(key, height);
-        if (inserted) {
-            ++deferred_stats_.total_deferred;
-            deferred_stats_.max_queue_size = std::max(deferred_stats_.max_queue_size, deferred_lookups_.size());
-        }
+        // if (inserted) {
+        //     ++deferred_stats_.total_deferred;
+        //     deferred_stats_.max_queue_size = std::max(deferred_stats_.max_queue_size, deferred_lookups_.size());
+        // }
     }
     
     template <size_t Index>
