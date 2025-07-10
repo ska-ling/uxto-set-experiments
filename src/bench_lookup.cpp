@@ -17,7 +17,7 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 // #define DBKIND 0    // custom
-#define DBKIND 1 // leveldb
+#define DBKIND 0 // leveldb
 
 #if defined(DBKIND) && DBKIND == 1
 #include "leveldb_v1.hpp"
@@ -120,7 +120,7 @@ LookupPreprocessResult preprocess_for_lookups(
     size_t estimated_transactions_needed = target_lookups * 2; // Estimate to get enough data
     
     log_print("Reading transactions from files (estimated need: {})...\n", estimated_transactions_needed);
-    auto [transactions, next_block, next_tx] = get_n_transactions(path, current_block, current_tx, estimated_transactions_needed);
+    auto [transactions, next_block, next_tx, stop] = get_n_transactions(path, current_block, current_tx, estimated_transactions_needed);
     
     if (transactions.empty()) {
         log_print("No transactions found in range [{}, {})\n", from_block, to_block);
@@ -207,6 +207,9 @@ struct LookupBenchmarkResult {
     size_t failed_lookups;
     size_t unexpected_results;  // Found when shouldn't exist, or not found when should exist
     double total_time_ns;
+    double direct_lookup_time_ns;  // Time for direct lookups (excluding deferred processing)
+    double deferred_time_ns;       // Time spent processing deferred lookups
+    size_t deferred_count;         // Number of deferred lookups processed
     double lookups_per_second;
 };
 
@@ -264,7 +267,39 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
     }
     
     auto end_time = std::chrono::high_resolution_clock::now();
-    double total_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+    double direct_lookup_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+    double total_time_ns = direct_lookup_time_ns;
+    double deferred_time_ns = 0.0;
+    size_t deferred_count = 0;
+
+#if defined(DBKIND) && DBKIND == 0
+    // Process deferred lookups if any (only for our custom DB)
+    deferred_count = db.deferred_lookups_size();
+    if (deferred_count > 0) {
+        log_print("Processing {} deferred lookups...\n", deferred_count);
+        
+        auto deferred_start = std::chrono::high_resolution_clock::now();
+        auto [successful_deferred, failed_deferred] = db.process_pending_lookups();
+        auto deferred_end = std::chrono::high_resolution_clock::now();
+        
+        deferred_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(deferred_end - deferred_start).count();
+        total_time_ns += deferred_time_ns; // Add deferred processing time to total
+        
+        log_print("Deferred lookups processed:\n");
+        log_print("  Successful: {}\n", successful_deferred.size());
+        log_print("  Failed: {}\n", failed_deferred.size());
+        log_print("  Deferred processing time: {}\n", format_time(deferred_time_ns));
+        log_print("  Deferred processing rate: {}/sec\n", format_si_rate((successful_deferred.size() + failed_deferred.size()) * 1e9 / deferred_time_ns));
+        
+        // Update counters with deferred results
+        successful_lookups.fetch_add(successful_deferred.size(), std::memory_order_relaxed);
+        failed_lookups.fetch_add(failed_deferred.size(), std::memory_order_relaxed);
+        
+        // Note: We don't update unexpected_results for deferred lookups since we don't track
+        // their expected outcomes separately
+    }
+#endif
+    
     double lookups_per_second = (lookup_items.size() * 1e9) / total_time_ns;
     
     return {
@@ -274,12 +309,18 @@ LookupBenchmarkResult benchmark_lookups(utxo_db& db, const LookupBatch& lookup_i
         failed_lookups.load(),
         unexpected_results.load(),
         total_time_ns,
+        direct_lookup_time_ns,
+        deferred_time_ns,
+        deferred_count,
         lookups_per_second
     };
 }
 
-// Global log file
+// Global log file - define the variable declared in log.hpp
 std::ofstream log_file;
+
+void init_log_file(const std::string& benchmark_name);
+void close_log_file();
 
 // Initialize the log file with a timestamped name
 void init_log_file(const std::string& benchmark_name) {
@@ -331,18 +372,12 @@ int main() {
     utxo_db db;
     
 #if defined(DBKIND) && DBKIND == 1
-    bool const open_res = db.configure("./leveldb_utxos", false); // read-only mode (don't remove existing)
+    db.configure("./leveldb_utxos", false); // read-only mode (don't remove existing)
+    log_print("Database opened successfully (LevelDB)\n");
 #elif defined(DBKIND) && DBKIND == 0
-    bool const open_res = db.open("utxo_interprocess_multiple", true); // read-only mode
+    db.configure("utxo_interprocess_multiple", false); // read-only mode (don't remove existing)
+    log_print("Database opened successfully (Custom DB)\n");
 #endif
-    
-    if (!open_res) {
-        log_print("Failed to open database. Make sure it's synced up to block {}\n", SYNC_UP_TO_BLOCK);
-        close_log_file();
-        return 1;
-    }
-    
-    log_print("Database opened successfully\n");
     
     // Get data path
     path const blocks_path = "/Users/fernando/dev/scalingbitcoin/bitcoin-cash-data-downloader/blocks";
@@ -388,8 +423,17 @@ int main() {
             log_print("  Successful: {}\n", format_si(result.successful_lookups));
             log_print("  Failed: {}\n", format_si(result.failed_lookups));
             log_print("  Unexpected: {}\n", format_si(result.unexpected_results));
-            log_print("  Time: {}\n", format_time(result.total_time_ns));
-            log_print("  Lookups/sec: {}\n", format_si_rate(result.lookups_per_second));
+            log_print("  Direct lookup time: {}\n", format_time(result.direct_lookup_time_ns));
+            if (result.deferred_count > 0) {
+                log_print("  Deferred count: {}\n", format_si(result.deferred_count));
+                log_print("  Deferred time: {}\n", format_time(result.deferred_time_ns));
+            }
+            log_print("  Total time: {}\n", format_time(result.total_time_ns));
+            log_print("  Overall rate: {}/sec\n", format_si_rate(result.lookups_per_second));
+            if (result.deferred_count > 0) {
+                double direct_rate = (result.total_lookups - result.deferred_count) * 1e9 / result.direct_lookup_time_ns;
+                log_print("  Direct lookup rate: {}/sec\n", format_si_rate(direct_rate));
+            }
             
             if (result.unexpected_results > 0) {
                 double unexpected_ratio = double(result.unexpected_results) / double(result.total_lookups);
@@ -400,18 +444,24 @@ int main() {
     
     // Print summary of all results
     log_print("\n=== Summary of All Results ===\n");
-    log_print("{:>7} {:>10} {:>12} {:>12} {:>12} {:>15}\n", 
-              "Threads", "Lookups", "Successful", "Failed", "Unexpected", "Lookups/sec");
-    log_print("{:-^7} {:-^10} {:-^12} {:-^12} {:-^12} {:-^15}\n", "", "", "", "", "", "");
+    log_print("{:>7} {:>10} {:>12} {:>12} {:>12} {:>10} {:>15} {:>15}\n", 
+              "Threads", "Lookups", "Successful", "Failed", "Unexpected", "Deferred", "Total/sec", "Direct/sec");
+    log_print("{:-^7} {:-^10} {:-^12} {:-^12} {:-^12} {:-^10} {:-^15} {:-^15}\n", "", "", "", "", "", "", "", "");
     
     for (const auto& result : all_results) {
-        log_print("{:>7} {:>10} {:>12} {:>12} {:>12} {:>15}\n",
+        double direct_rate = result.deferred_count > 0 ? 
+            ((result.total_lookups - result.deferred_count) * 1e9 / result.direct_lookup_time_ns) : 
+            result.lookups_per_second;
+            
+        log_print("{:>7} {:>10} {:>12} {:>12} {:>12} {:>10} {:>15} {:>15}\n",
                   result.thread_count,
                   format_si(result.total_lookups),
                   format_si(result.successful_lookups), 
                   format_si(result.failed_lookups),
                   format_si(result.unexpected_results),
-                  format_si_rate(result.lookups_per_second));
+                  format_si(result.deferred_count),
+                  format_si_rate(result.lookups_per_second),
+                  format_si_rate(direct_rate));
     }
     
     // Analysis: find optimal thread count

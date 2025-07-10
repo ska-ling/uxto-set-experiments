@@ -439,6 +439,7 @@ class utxo_db {
         size_t current_size = 0;
         size_t failed_deletes = 0;
         size_t deferred_deletes = 0;
+        size_t deferred_lookups = 0;
         size_t rehash_count = 0;
         std::map<size_t, size_t> value_size_distribution; // size -> count
     };
@@ -1076,6 +1077,7 @@ public:
             log_print("  Total deletes: {}\n", stats.containers[i].total_deletes);
             log_print("  Failed deletes: {}\n", stats.containers[i].failed_deletes);
             log_print("  Deferred deletes pending: {}\n", stats.containers[i].deferred_deletes);
+            log_print("  Deferred lookups pending: {}\n", stats.containers[i].deferred_lookups);
             log_print("  Rehash count: {}\n", stats.containers[i].rehash_count);
             log_print("  File rotations: {}\n", stats.rotations_per_container[i]);
             log_print("  Est. memory usage: {:.2f} MB\n", stats.memory_usage_per_container[i] / (1024.0*1024.0));
@@ -1654,7 +1656,7 @@ private:
                         search_stats_.add_record(x.height, it->second.block_height, depth, cache_hit, true, 'f');
                         
                         // Update container stats
-                        --container_stats_[Index].deferred_deletes;
+                        --container_stats_[Index].deferred_lookups;
                         
                         auto data = it->second.get_data();
                         successful_lookups.emplace(x.key, std::vector<uint8_t>(data.begin(), data.end()));
