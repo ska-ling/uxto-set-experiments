@@ -19,6 +19,7 @@
 #include <fmt/core.h>
 
 #include "common_db.hpp"
+#include "common_utxo.hpp"
 #include "log.hpp"
 
 // Hash table selection: 0 = Boost, 1 = Parlay Hash
@@ -104,17 +105,17 @@ using utxo_key_t = std::array<uint8_t, utxo_key_size>;
 //     print_hex(hash.data(), hash.size());
 // }
 
-void print_key(utxo_key_t const& key) {
-    // first 32 bytes are the transaction hash, print in hex reversed
-    for (size_t i = 0; i < 32; ++i) {
-        log_print("{:02x}", key[31 - i]);
-    }   
-    // the last 4 bytes are the output index, print as integer
-    uint32_t output_index = 0;
-    std::copy(key.end() - 4, key.end(), reinterpret_cast<uint8_t*>(&output_index));
-    log_print(":{}", output_index);
-    log_print("\n");
-}
+// void print_key(utxo_key_t const& key) {
+//     // first 32 bytes are the transaction hash, print in hex reversed
+//     for (size_t i = 0; i < 32; ++i) {
+//         log_print("{:02x}", key[31 - i]);
+//     }   
+//     // the last 4 bytes are the output index, print as integer
+//     uint32_t output_index = 0;
+//     std::copy(key.end() - 4, key.end(), reinterpret_cast<uint8_t*>(&output_index));
+//     log_print(":{}", output_index);
+//     log_print("\n");
+// }
 
 using segment_manager_t = bip::managed_mapped_file::segment_manager;
 using key_hash = boost::hash<utxo_key_t>;
@@ -617,6 +618,137 @@ public:
         // return find_in_previous_versions(key, height);
     }
     
+
+    // Recorre todos los elementos de todos los contenedores y versiones
+    // La función callback recibe: (key, value_data, block_height, container_index, version)
+    template <typename Func>
+    void for_each_entry(Func&& func) {
+        size_t total_entries_processed = 0;
+        
+        // Procesar cada contenedor
+        for_each_index<IdxN>([&](auto I) {
+            constexpr size_t Index = I.value;
+            size_t container_entries = 0;
+            
+            // Primero procesar la versión actual (en memoria)
+            {
+                auto& map = container<Index>();
+                for (auto const& [key, value] : map) {
+                    func(key, value.get_data(), value.block_height, Index, current_versions_[Index]);
+                    ++container_entries;
+                    ++total_entries_processed;
+                }
+                log_print("Container {} current version ({}): {} entries processed\n", 
+                         Index, current_versions_[Index], map.size());
+            }
+            
+            // Luego procesar todas las versiones anteriores (en disco)
+            if (current_versions_[Index] > 0) {
+                for (size_t v = 0; v < current_versions_[Index]; ++v) {
+                    size_t version_entries = process_version_entries<Index>(v, func);
+                    container_entries += version_entries;
+                    total_entries_processed += version_entries;
+                    
+                    if (version_entries > 0) {
+                        log_print("Container {} version {}: {} entries processed\n", 
+                                 Index, v, version_entries);
+                    }
+                }
+            }
+            
+            log_print("Container {} total: {} entries processed across {} versions\n", 
+                     Index, container_entries, current_versions_[Index] + 1);
+        });
+        
+        log_print("Total entries processed: {}\n", total_entries_processed);
+    }
+    
+    // Versión alternativa que permite filtrar por criterios
+    template <typename Func, typename Predicate>
+    void for_each_entry_if(Func&& func, Predicate&& pred) {
+        size_t total_entries_processed = 0;
+        size_t total_entries_matched = 0;
+        
+        for_each_index<IdxN>([&](auto I) {
+            constexpr size_t Index = I.value;
+            
+            // Procesar versión actual
+            {
+                auto& map = container<Index>();
+                for (auto const& [key, value] : map) {
+                    ++total_entries_processed;
+                    if (pred(key, value.block_height)) {
+                        func(key, value.get_data(), value.block_height, Index, current_versions_[Index]);
+                        ++total_entries_matched;
+                    }
+                }
+            }
+            
+            // Procesar versiones anteriores
+            if (current_versions_[Index] > 0) {
+                for (size_t v = 0; v < current_versions_[Index]; ++v) {
+                    auto [processed, matched] = process_version_entries_if<Index>(v, func, pred);
+                    total_entries_processed += processed;
+                    total_entries_matched += matched;
+                }
+            }
+        });
+        
+        log_print("Total entries: {} processed, {} matched filter\n", 
+                 total_entries_processed, total_entries_matched);
+    }
+    
+    // Método para obtener una snapshot de todas las entradas
+    struct utxo_entry {
+        utxo_key_t key;
+        std::vector<uint8_t> data;
+        uint32_t block_height;
+        size_t container_index;
+        size_t version;
+    };
+    
+    std::vector<utxo_entry> get_all_entries() {
+        std::vector<utxo_entry> entries;
+        entries.reserve(entries_count_); // Pre-allocate basado en el conteo conocido
+        
+        for_each_entry([&entries](utxo_key_t const& key, 
+                                  std::span<uint8_t const> data, 
+                                  uint32_t block_height,
+                                  size_t container_index,
+                                  size_t version) {
+            entries.push_back({
+                key,
+                std::vector<uint8_t>(data.begin(), data.end()),
+                block_height,
+                container_index,
+                version
+            });
+        });
+        
+        return entries;
+    }
+    
+    // Método para contar entradas por versión
+    std::array<std::vector<size_t>, IdxN> count_entries_by_version() {
+        std::array<std::vector<size_t>, IdxN> counts;
+        
+        for_each_index<IdxN>([&](auto I) {
+            constexpr size_t Index = I.value;
+            counts[Index].resize(current_versions_[Index] + 1);
+            
+            // Contar en versión actual
+            counts[Index][current_versions_[Index]] = container<Index>().size();
+            
+            // Contar en versiones anteriores
+            for (size_t v = 0; v < current_versions_[Index]; ++v) {
+                counts[Index][v] = count_entries_in_version<Index>(v);
+            }
+        });
+        
+        return counts;
+    }
+
+
 
 
     // Compaction will merge files, remove empty ones, and optimize storage
@@ -1254,6 +1386,110 @@ private:
     utxo_map<container_sizes[Index]>& container() {
         return *static_cast<utxo_map<container_sizes[Index]>*>(containers_[Index]);
     }
+
+    // Helper para procesar entradas de una versión específica
+    template <size_t Index, typename Func>
+    size_t process_version_entries(size_t version, Func&& func) {
+        auto file_name = fmt::format(data_file_format, db_path_.string(), Index, version);
+        if (!fs::exists(file_name)) {
+            return 0;
+        }
+        
+        try {
+            // Intentar usar el cache primero
+            auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(Index, version);
+            
+            size_t count = 0;
+            for (auto const& [key, value] : map) {
+                func(key, value.get_data(), value.block_height, Index, version);
+                ++count;
+            }
+            
+            return count;
+            
+        } catch (std::exception const& e) {
+            log_print("Error processing container {} version {}: {}\n", Index, version, e.what());
+            
+            // Si falla con cache, intentar apertura directa
+            try {
+                bip::managed_mapped_file segment(bip::open_only, file_name.c_str());
+                auto* map = segment.find<utxo_map<container_sizes[Index]>>("db_map").first;
+                
+                if (!map) {
+                    log_print("Map not found in file: {}\n", file_name);
+                    return 0;
+                }
+                
+                size_t count = 0;
+                for (auto const& [key, value] : *map) {
+                    func(key, value.get_data(), value.block_height, Index, version);
+                    ++count;
+                }
+                
+                return count;
+                
+            } catch (std::exception const& e2) {
+                log_print("Direct access also failed: {}\n", e2.what());
+                return 0;
+            }
+        }
+    }
+    
+    // Helper para procesar entradas con predicado
+    template <size_t Index, typename Func, typename Predicate>
+    std::pair<size_t, size_t> process_version_entries_if(size_t version, Func&& func, Predicate&& pred) {
+        auto file_name = fmt::format(data_file_format, db_path_.string(), Index, version);
+        if (!fs::exists(file_name)) {
+            return {0, 0};
+        }
+        
+        try {
+            auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(Index, version);
+            
+            size_t processed = 0;
+            size_t matched = 0;
+            
+            for (auto const& [key, value] : map) {
+                ++processed;
+                if (pred(key, value.block_height)) {
+                    func(key, value.get_data(), value.block_height, Index, version);
+                    ++matched;
+                }
+            }
+            
+            return {processed, matched};
+            
+        } catch (std::exception const& e) {
+            log_print("Error processing container {} version {} with predicate: {}\n", 
+                     Index, version, e.what());
+            return {0, 0};
+        }
+    }
+    
+    // Helper para contar entradas en una versión
+    template <size_t Index>
+    size_t count_entries_in_version(size_t version) {
+        auto file_name = fmt::format(data_file_format, db_path_.string(), Index, version);
+        if (!fs::exists(file_name)) {
+            return 0;
+        }
+        
+        // Primero intentar usar metadata si está disponible
+        if (file_metadata_[Index].size() > version) {
+            return file_metadata_[Index][version].entry_count;
+        }
+        
+        // Si no hay metadata, contar directamente
+        try {
+            auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(Index, version);
+            return map.size();
+        } catch (std::exception const& e) {
+            log_print("Error counting entries in container {} version {}: {}\n", 
+                     Index, version, e.what());
+            return 0;
+        }
+    }
+
     
     // Insert implementation
     template <size_t Index>

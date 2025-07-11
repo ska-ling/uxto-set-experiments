@@ -26,6 +26,7 @@ message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 set(BENCH_LOOKUP_PROJECT_NAME bench_lookup)
 set(COMPARISON_PROJECT_NAME bench_db_comparison)
 set(TEST_LEVELDB_NAME test_leveldb)
+set(MIGRATE_TO_LEVELDB migrate_to_leveldb)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/third_party/parlayhash)
@@ -36,6 +37,7 @@ include_directories(${CMAKE_SOURCE_DIR}/third_party/parlayhash)
 add_executable(${BENCH_LOOKUP_PROJECT_NAME} src/bench_lookup.cpp)
 # add_executable(${COMPARISON_PROJECT_NAME} src/bench_db_comparison.cpp)
 # add_executable(${TEST_LEVELDB_NAME} src/test_leveldb.cpp)
+add_executable(${MIGRATE_TO_LEVELDB} src/migrate_to_leveldb.cpp)
 
 # target_link_libraries(${PROJECT_NAME} PUBLIC node::node)
 # target_link_libraries(${PROJECT_NAME} PUBLIC fmt::fmt-header-only)
@@ -60,6 +62,13 @@ target_link_libraries(${BENCH_LOOKUP_PROJECT_NAME} PUBLIC leveldb::leveldb)
 
 # target_link_libraries(${TEST_LEVELDB_NAME} PUBLIC fmt::fmt-header-only)
 # target_link_libraries(${TEST_LEVELDB_NAME} PUBLIC leveldb::leveldb)
+
+
+target_link_libraries(${MIGRATE_TO_LEVELDB} PUBLIC node::node)
+target_link_libraries(${MIGRATE_TO_LEVELDB} PUBLIC fmt::fmt-header-only)
+target_link_libraries(${MIGRATE_TO_LEVELDB} PUBLIC leveldb::leveldb)
+# target_link_libraries(${MIGRATE_TO_LEVELDB} PUBLIC ${JEMALLOC_LIB})
+
 
 # install(TARGETS ${PROJECT_NAME} DESTINATION "."
 #         RUNTIME DESTINATION bin
@@ -90,3 +99,9 @@ install(TARGETS ${BENCH_LOOKUP_PROJECT_NAME} DESTINATION "."
 #         ARCHIVE DESTINATION lib
 #         LIBRARY DESTINATION lib
 # )
+
+install(TARGETS ${MIGRATE_TO_LEVELDB} DESTINATION "."
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+)
