@@ -28,6 +28,7 @@ set(COMPARISON_PROJECT_NAME bench_db_comparison)
 set(TEST_LEVELDB_NAME test_leveldb)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/third_party/parlayhash)
 # ---------------------------------------------------------------
 
 # add_executable(${PROJECT_NAME} src/main.cpp)

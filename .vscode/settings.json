@@ -57,6 +57,9 @@
         "map": "cpp",
         "sstream": "cpp",
         "charconv": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "list": "cpp",
+        "unordered_set": "cpp",
+        "iterator": "cpp"
     }
 }

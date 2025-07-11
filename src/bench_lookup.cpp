@@ -17,7 +17,7 @@
 #include <boost/unordered/unordered_flat_set.hpp>
 
 // #define DBKIND 0    // custom
-#define DBKIND 0 // leveldb
+#define DBKIND 1 // leveldb
 
 #if defined(DBKIND) && DBKIND == 1
 #include "leveldb_v1.hpp"

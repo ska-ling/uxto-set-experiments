@@ -2,7 +2,6 @@
 
 #include <boost/interprocess/managed_mapped_file.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
-#include <boost/unordered/concurrent_flat_set.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <boost/container_hash/hash.hpp>
@@ -21,6 +20,20 @@
 
 #include "common_db.hpp"
 #include "log.hpp"
+
+// Hash table selection: 0 = Boost, 1 = Parlay Hash
+#define HASHTABLE_KIND 0 // Boost Concurrent Flat Map
+// #define HASHTABLE_KIND 1 // Parlay Hash
+
+
+#if HASHTABLE_KIND == 0
+#include <boost/unordered/concurrent_flat_set.hpp>
+#elif HASHTABLE_KIND == 1
+#include <old_parlay_hash/unordered_set.h>
+#else
+#error "Unsupported HASHTABLE_KIND. Use 0 for Boost or 1 for Parlay Hash."
+#endif
+
 
 namespace utxo {
 
@@ -261,10 +274,13 @@ private:
     std::vector<search_record> search_records;
 };
 
+#if HASHTABLE_KIND == 0
 // Deferred deletion entry
 struct deferred_entry {
     utxo_key_t key;
     uint32_t height;
+
+    deferred_entry() = default; // for parlay compatibility
     
     deferred_entry(utxo_key_t const& k, uint32_t h) 
         : key(k), height(h) {}
@@ -278,6 +294,9 @@ struct deferred_entry {
         return boost::hash<utxo_key_t>{}(entry.key);
     }
 };
+#else 
+using deferred_entry = utxo_key_t;
+#endif
 
 // File cache using integer pairs as keys - more efficient
 struct file_cache {
@@ -761,9 +780,15 @@ public:
         return deferred_deletions_.size();
     }
 
+#if HASHTABLE_KIND == 0
     size_t deferred_lookups_size() const {
         return deferred_lookups_.size();
     }
+#else
+    size_t deferred_lookups_size() {
+        return deferred_lookups_.size();
+    }
+#endif
 
     // Get cache statistics
     float get_cache_hit_rate() const {
@@ -847,7 +872,11 @@ public:
         failed_deletions.reserve(deferred_deletions_.size());
         
         for (auto const& entry : deferred_deletions_) {
+#if HASHTABLE_KIND == 0
             failed_deletions.push_back(entry.key);
+#else
+            failed_deletions.push_back(entry);
+#endif
         }
         
         // Clear the deferred deletions since we've processed everything we can
@@ -953,13 +982,16 @@ public:
         std::vector<utxo_key_t> failed_lookups;
         failed_lookups.reserve(deferred_lookups_.size());
         
-        // for (auto const& entry : deferred_lookups_) {
-        //     failed_lookups.push_back(entry.key);
-        // }
+#if HASHTABLE_KIND == 0
         deferred_lookups_.visit_all([&](auto const& x) {
             failed_lookups.push_back(x.key);
         });
-        
+#else
+        for (auto const& entry : deferred_lookups_) {
+            failed_lookups.push_back(entry.key.key); // Parlay: entry.key is deferred_entry, use .key for utxo_key_t
+        }
+#endif
+
         // Clear the deferred lookups since we've processed everything we can
         deferred_lookups_.clear();
         
@@ -1202,7 +1234,12 @@ private:
     file_cache file_cache_ = file_cache(""); // number of cached files. TODO: change
     search_stats search_stats_;
     boost::unordered_flat_set<deferred_entry> deferred_deletions_;
+
+#if HASHTABLE_KIND == 0 
     boost::concurrent_flat_set<deferred_entry> deferred_lookups_;
+#else
+    parlay::parlay_unordered_set<deferred_entry> deferred_lookups_{1'000'000}; // Initial size, can grow
+#endif
     
     // Agregar estos miembros a la clase
     std::array<container_stats, IdxN> container_stats_;
@@ -1523,7 +1560,11 @@ private:
     }
 
     void add_to_deferred_lookups(utxo_key_t const& key, uint32_t height) {
+#if HASHTABLE_KIND == 0        
         auto inserted = deferred_lookups_.emplace(key, height);
+#else
+    auto inserted = deferred_lookups_.Insert(deferred_entry{key, height});
+#endif
         // if (inserted) {
         //     ++deferred_stats_.total_deferred;
         //     deferred_stats_.max_queue_size = std::max(deferred_stats_.max_queue_size, deferred_lookups_.size());
@@ -1645,6 +1686,7 @@ private:
             try {
                 auto [map, cache_hit] = file_cache_.get_or_open_file<Index>(container_index, version);
                 
+#if HASHTABLE_KIND == 0
                 deferred_lookups_.erase_if([&](auto const& x) {
                     auto it = map.find(x.key);
                     if (it != map.end()) {
@@ -1664,6 +1706,33 @@ private:
                     }
                     return false; // Keep this entry
                 });
+#else
+                auto it = deferred_lookups_.begin();
+                while (it != deferred_lookups_.end()) {
+                    auto const& elem = (*it).key;
+                    auto const& key = elem.key;
+                    auto const& height = elem.height;
+                    auto map_it = map.find(key);
+                    if (map_it != map.end()) {
+                        size_t depth = current_versions_[Index] - version;
+                        
+                        // Track depth of deferred lookups
+                        ++deferred_stats_.lookups_by_depth[depth];
+                        
+                        search_stats_.add_record(height, map_it->second.block_height, depth, cache_hit, true, 'f');
+                        
+                        // Update container stats
+                        --container_stats_[Index].deferred_lookups;
+                        
+                        auto data = map_it->second.get_data();
+                        successful_lookups.emplace(key, std::vector<uint8_t>(data.begin(), data.end()));
+                        
+                        it = deferred_lookups_.erase(it); // Remove this entry
+                    } else {
+                        ++it; // Keep this entry
+                    }
+                }    
+#endif
 
                 if (successful_lookups.size() > 0) {
                     log_print("Processed {} lookups from {}({}, v{}) - {} remaining\n", 
