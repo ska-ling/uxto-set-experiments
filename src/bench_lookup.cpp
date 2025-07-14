@@ -16,8 +16,8 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 
-// #define DBKIND 0    // custom
-#define DBKIND 1 // leveldb
+#define DBKIND 0    // custom
+// #define DBKIND 1 // leveldb
 
 #if defined(DBKIND) && DBKIND == 1
 #include "leveldb_v1.hpp"
@@ -504,8 +504,8 @@ int main() {
                   format_si(result.successful_lookups), 
                   format_si(result.failed_lookups),
                   format_si(result.deferred_count),
-                  format_si_rate(result.lookups_per_second),
-                  format_si_rate(direct_rate));
+                  format_si(result.lookups_per_second),
+                  format_si(direct_rate));
     }
     
     // Analysis: find optimal thread count
