@@ -421,6 +421,9 @@ public:
         return total_size;
     }
 
+    // Expose LevelDB pointer for direct access (for debugging/inspection)
+    leveldb::DB* get_db() { return db_; }
+
 private:
     leveldb::DB* db_ = nullptr;
     fs::path db_path_;

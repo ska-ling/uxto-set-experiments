@@ -410,7 +410,7 @@ int main() {
     log_print("Database opened successfully (LevelDB)\n");
     // --- List and count all elements in LevelDB ---
     size_t leveldb_count = 0;
-    auto it = db.raw_db()->NewIterator(leveldb::ReadOptions());
+    auto it = db.get_db()->NewIterator(leveldb::ReadOptions());
     it->SeekToFirst();
     while (it->Valid()) {
         ++leveldb_count;
