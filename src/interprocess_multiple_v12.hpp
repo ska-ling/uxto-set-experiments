@@ -1931,6 +1931,21 @@ private:
     // Process deferred lookups for a specific file (container index and version)
     void process_deferred_lookups_in_file(size_t container_index, size_t version, bool is_cached, boost::unordered_flat_map<utxo_key_t, std::vector<uint8_t>>& successful_lookups) {
         if (deferred_lookups_.empty()) return;
+
+#if HASHTABLE_KIND == 1        
+        // std::vector<std::pair<deferred_entry, bool>> deferred_lookups_local;
+        // for (auto const& entry : deferred_lookups_) {
+        //     deferred_lookups_local.emplace_back(entry, false); // false means not processed yet
+        // }
+        // deferred_lookups_.clear(); // Clear the set to avoid reprocessing
+
+        std::vector<deferred_entry> deferred_lookups_local;
+        for (auto const& entry : deferred_lookups_) {
+            deferred_lookups_local.emplace_back(entry.first);
+        }
+        deferred_lookups_.clear(); // Clear the set to avoid reprocessing
+#endif
+        
         
         auto process_with_container = [&]<size_t Index>(std::integral_constant<size_t, Index>) {
             try {
@@ -1957,28 +1972,52 @@ private:
                     return false; // Keep this entry
                 });
 #else
-                auto it = deferred_lookups_.begin();
-                while (it != deferred_lookups_.end()) {
-                    auto const& key = (*it).first;
-                    print_key(key);
-                    auto map_it = map.find(key);
-                    if (map_it != map.end()) {
+
+                for (auto const& entry : deferred_lookups_local) {
+                    auto it = map.find(entry);
+                    if (it != map.end()) {
                         size_t depth = current_versions_[Index] - version;
                         
                         // Track depth of deferred lookups
                         ++deferred_stats_.lookups_by_depth[depth];
                         
+                        // search_stats_.add_record(entry.second, it->second.block_height, depth, cache_hit, true, 'f');
+                        
                         // Update container stats
-                        --container_stats_[Index].deferred_lookups;
+                        // --container_stats_[Index].deferred_lookups;
                         
-                        auto data = map_it->second.get_data();
-                        successful_lookups.emplace(key, std::vector<uint8_t>(data.begin(), data.end()));
-                        
-                        it = deferred_lookups_.erase(it); // Remove this entry
+                        auto data = it->second.get_data();
+                        successful_lookups.emplace(entry, std::vector<uint8_t>(data.begin(), data.end()));
+                        // entry.second = true; // Mark as processed
                     } else {
-                        ++it; // Keep this entry
+                        deferred_lookups_.Insert(entry, 0); // Reinsert if not found
                     }
-                }    
+                    
+                }
+
+
+                // auto it = deferred_lookups_.begin();
+                // while (it != deferred_lookups_.end()) {
+                //     auto const& key = (*it).first;
+                //     print_key(key);
+                //     auto map_it = map.find(key);
+                //     if (map_it != map.end()) {
+                //         size_t depth = current_versions_[Index] - version;
+                        
+                //         // Track depth of deferred lookups
+                //         ++deferred_stats_.lookups_by_depth[depth];
+                        
+                //         // Update container stats
+                //         --container_stats_[Index].deferred_lookups;
+                        
+                //         auto data = map_it->second.get_data();
+                //         successful_lookups.emplace(key, std::vector<uint8_t>(data.begin(), data.end()));
+                        
+                //         it = deferred_lookups_.erase(it); // Remove this entry
+                //     } else {
+                //         ++it; // Keep this entry
+                //     }
+                // }    
 #endif
 
                 if (successful_lookups.size() > 0) {
