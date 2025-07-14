@@ -23,8 +23,8 @@
 #include "log.hpp"
 
 // Hash table selection: 0 = Boost, 1 = Parlay Hash
-// #define HASHTABLE_KIND 0 // Boost Concurrent Flat Map
-#define HASHTABLE_KIND 1 // Parlay Hash
+#define HASHTABLE_KIND 0 // Boost Concurrent Flat Map
+// #define HASHTABLE_KIND 1 // Parlay Hash
 
 
 #if HASHTABLE_KIND == 0
@@ -1931,6 +1931,7 @@ private:
     // Process deferred lookups for a specific file (container index and version)
     void process_deferred_lookups_in_file(size_t container_index, size_t version, bool is_cached, boost::unordered_flat_map<utxo_key_t, std::vector<uint8_t>>& successful_lookups) {
         if (deferred_lookups_.empty()) return;
+        size_t successful_count = 0;
 
 #if HASHTABLE_KIND == 1        
         // std::vector<std::pair<deferred_entry, bool>> deferred_lookups_local;
@@ -1967,6 +1968,7 @@ private:
                         
                         auto data = it->second.get_data();
                         successful_lookups.emplace(x.key, std::vector<uint8_t>(data.begin(), data.end()));
+                        ++successful_count;
                         return true; // Remove this entry
                     }
                     return false; // Keep this entry
@@ -1989,6 +1991,7 @@ private:
                         auto data = it->second.get_data();
                         successful_lookups.emplace(entry, std::vector<uint8_t>(data.begin(), data.end()));
                         // entry.second = true; // Mark as processed
+                        ++successful_count;
                     } else {
                         deferred_lookups_.Insert(entry, 0); // Reinsert if not found
                     }
@@ -2022,7 +2025,7 @@ private:
 
                 if (successful_lookups.size() > 0) {
                     log_print("Processed {} lookups from {}({}, v{}) - {} remaining\n", 
-                            successful_lookups.size(), is_cached ? "cached " : "", 
+                            successful_count, is_cached ? "cached " : "", 
                             container_index, version, deferred_lookups_.size());
                 }   
             } catch (std::exception const& e) {
