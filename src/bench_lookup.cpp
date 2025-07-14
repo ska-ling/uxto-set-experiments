@@ -408,6 +408,18 @@ int main() {
 #if defined(DBKIND) && DBKIND == 1
     db.configure("./leveldb_utxos", false); // read-only mode (don't remove existing)
     log_print("Database opened successfully (LevelDB)\n");
+    // --- List and count all elements in LevelDB ---
+    size_t leveldb_count = 0;
+    auto it = db.raw_db()->NewIterator(leveldb::ReadOptions());
+    it->SeekToFirst();
+    while (it->Valid()) {
+        ++leveldb_count;
+        log_print("Key {}\n", it->key().ToString());
+        it->Next();
+    }
+    log_print("Total elements in LevelDB: {}\n", leveldb_count);
+    delete it;
+    // --- End listing ---
 #elif defined(DBKIND) && DBKIND == 0
     db.configure("utxo_interprocess_multiple", false); // read-only mode (don't remove existing)
     log_print("Database opened successfully (Custom DB)\n");
