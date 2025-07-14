@@ -39,8 +39,13 @@ using utxo_db = utxo::utxo_db;
 constexpr size_t SYNC_UP_TO_BLOCK = 750'000;      // Block height to sync up to (DB should be pre-synced)
 constexpr size_t LOOKUP_FROM_BLOCK = 750'000;     // Start reading transactions from this block
 constexpr size_t LOOKUP_TO_BLOCK = 780'000;       // End reading transactions at this block
-constexpr size_t MIN_LOOKUPS_PER_BATCH = 50'000;  // Minimum lookups per batch
-constexpr size_t MAX_LOOKUPS_PER_BATCH = 100'000; // Maximum lookups per batch
+
+// constexpr size_t MIN_LOOKUPS_PER_BATCH = 50'000;  // Minimum lookups per batch
+// constexpr size_t MAX_LOOKUPS_PER_BATCH = 100'000; // Maximum lookups per batch
+
+constexpr size_t MIN_LOOKUPS_PER_BATCH = 500'000;  // Minimum lookups per batch
+constexpr size_t MAX_LOOKUPS_PER_BATCH = 1'000'000; // Maximum lookups per batch
+
 // constexpr double FAILED_LOOKUP_RATIO = 0.1;       // 10% of lookups should be known failures
 constexpr double FAILED_LOOKUP_RATIO = 0.0;       //  0% of lookups should be known failures
 constexpr size_t MIN_THREADS = 1;                 // Minimum number of threads to test
