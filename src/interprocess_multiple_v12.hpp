@@ -1960,7 +1960,7 @@ private:
                 auto it = deferred_lookups_.begin();
                 while (it != deferred_lookups_.end()) {
                     auto const& key = (*it).first;
-                    print_key(entry.first);
+                    print_key(key);
                     auto map_it = map.find(key);
                     if (map_it != map.end()) {
                         size_t depth = current_versions_[Index] - version;
