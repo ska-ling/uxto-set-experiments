@@ -414,7 +414,8 @@ int main() {
     it->SeekToFirst();
     while (it->Valid()) {
         ++leveldb_count;
-        log_print("Key {}\n", it->key().ToString());
+        // log_print("Key {}\n", it->key().ToString());
+        print_key(it->key());
         it->Next();
     }
     log_print("Total elements in LevelDB: {}\n", leveldb_count);
