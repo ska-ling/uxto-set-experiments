@@ -1121,7 +1121,7 @@ public:
         });
 #else
         for (auto const& entry : deferred_lookups_) {
-            print_key(entry.first);
+            // print_key(entry.first);
             failed_lookups.push_back(entry.first);
         }
 #endif
@@ -1959,23 +1959,14 @@ private:
 #else
                 auto it = deferred_lookups_.begin();
                 while (it != deferred_lookups_.end()) {
-#if HASHTABLE_KIND == 0
-                    auto const& elem = (*it).key;
-                    auto const& key = elem.key;
-                    auto const& height = elem.height;
-#else
                     auto const& key = (*it).first;
-#endif                    
+                    print_key(entry.first);
                     auto map_it = map.find(key);
                     if (map_it != map.end()) {
                         size_t depth = current_versions_[Index] - version;
                         
                         // Track depth of deferred lookups
                         ++deferred_stats_.lookups_by_depth[depth];
-                        
-#if HASHTABLE_KIND == 0                        
-                        search_stats_.add_record(height, map_it->second.block_height, depth, cache_hit, true, 'f');
-#endif
                         
                         // Update container stats
                         --container_stats_[Index].deferred_lookups;
