@@ -68,11 +68,11 @@ public :
   template <typename F>
   bool upsert(const K& k, const F& f) {return m.upsert(k, f);}
 
-  // V operator [](const K& k) {
-  //   auto r = Find(k);
-  //   if (r.has_value()) return *r;
-  //   return Entry();
-  // }
+  V operator [](const K& k) {
+    auto r = Find(k);
+    if (r.has_value()) return *r;
+    return Entry();
+  }
   
   template <typename F = decltype(identity)>
   parlay::sequence<Entry> entries(const F& f = identity) {

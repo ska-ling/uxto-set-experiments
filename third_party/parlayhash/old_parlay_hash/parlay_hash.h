@@ -7,8 +7,8 @@
 #include "../utils/epoch.h"
 #include "../utils/lock.h"
 
-#ifndef PARLAY_HASH_OLD_H_
-#define PARLAY_HASH_OLD_H_
+#ifndef PARLAY_HASH_H_
+#define PARLAY_HASH_H_
 
 //#define USE_LOCKS 1
 
@@ -434,4 +434,4 @@ public:
 };
 
 }
-#endif // PARLAY_HASH_OLD_H_
+#endif // PARLAY_HASH_H_

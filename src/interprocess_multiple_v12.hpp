@@ -23,14 +23,15 @@
 #include "log.hpp"
 
 // Hash table selection: 0 = Boost, 1 = Parlay Hash
-#define HASHTABLE_KIND 0 // Boost Concurrent Flat Map
-// #define HASHTABLE_KIND 1 // Parlay Hash
+// #define HASHTABLE_KIND 0 // Boost Concurrent Flat Map
+#define HASHTABLE_KIND 1 // Parlay Hash
 
 
 #if HASHTABLE_KIND == 0
 #include <boost/unordered/concurrent_flat_set.hpp>
 #elif HASHTABLE_KIND == 1
-#include <old_parlay_hash/unordered_set.h>
+// #include <parlay_hash/unordered_set.h>
+#include <parlay_hash/unordered_map.h>
 #else
 #error "Unsupported HASHTABLE_KIND. Use 0 for Boost or 1 for Parlay Hash."
 #endif
@@ -1120,7 +1121,7 @@ public:
         });
 #else
         for (auto const& entry : deferred_lookups_) {
-            failed_lookups.push_back(entry.key.key); // Parlay: entry.key is deferred_entry, use .key for utxo_key_t
+            failed_lookups.push_back(entry.first);
         }
 #endif
 
@@ -1370,7 +1371,8 @@ private:
 #if HASHTABLE_KIND == 0 
     boost::concurrent_flat_set<deferred_entry> deferred_lookups_;
 #else
-    parlay::parlay_unordered_set<deferred_entry> deferred_lookups_{1'000'000}; // Initial size, can grow
+    // parlay::parlay_unordered_set<deferred_entry> deferred_lookups_{1'000'000}; // Initial size, can grow
+    parlay::parlay_unordered_map<deferred_entry, int> deferred_lookups_{1'000'000}; // Initial size, can grow
 #endif
     
     // Agregar estos miembros a la clase
@@ -1782,7 +1784,11 @@ private:
 
     // Deferred deletion helpers
     void add_to_deferred_deletions(utxo_key_t const& key, uint32_t height) {
+#if HASHTABLE_KIND == 0
         auto [it, inserted] = deferred_deletions_.emplace(key, height);
+#else
+        auto [it, inserted] = deferred_deletions_.emplace(key);
+#endif
         if (inserted) {
             ++deferred_stats_.total_deferred;
             deferred_stats_.max_queue_size = std::max(deferred_stats_.max_queue_size, deferred_deletions_.size());
@@ -1799,7 +1805,8 @@ private:
 #if HASHTABLE_KIND == 0        
         auto inserted = deferred_lookups_.emplace(key, height);
 #else
-    auto inserted = deferred_lookups_.Insert(deferred_entry{key, height});
+    // auto inserted = deferred_lookups_.Insert(deferred_entry{key, height});
+    auto inserted = deferred_lookups_.Insert(key, 0);
 #endif
         // if (inserted) {
         //     ++deferred_stats_.total_deferred;
@@ -1869,7 +1876,11 @@ private:
                 
                 auto it = deferred_deletions_.begin();
                 while (it != deferred_deletions_.end()) {
+#if HASHTABLE_KIND == 0
                     auto erased_count = map.erase(it->key);
+#else
+                    auto erased_count = map.erase(*it);
+#endif
                     if (erased_count > 0) {
                         update_metadata_on_delete(Index, version);
                         size_t depth = current_versions_[Index] - version;
@@ -1877,7 +1888,9 @@ private:
                         // Track depth of deferred deletions
                         ++deferred_stats_.deletions_by_depth[depth];
                         
+#if HASHTABLE_KIND == 0                        
                         search_stats_.add_record(it->height, 0, depth, cache_hit, true, 'e');
+#endif
                         
                         // Update container stats
                         --container_stats_[Index].deferred_deletes;
@@ -1945,9 +1958,13 @@ private:
 #else
                 auto it = deferred_lookups_.begin();
                 while (it != deferred_lookups_.end()) {
+#if HASHTABLE_KIND == 0
                     auto const& elem = (*it).key;
                     auto const& key = elem.key;
                     auto const& height = elem.height;
+#else
+                    auto const& key = (*it).first;
+#endif                    
                     auto map_it = map.find(key);
                     if (map_it != map.end()) {
                         size_t depth = current_versions_[Index] - version;
@@ -1955,7 +1972,9 @@ private:
                         // Track depth of deferred lookups
                         ++deferred_stats_.lookups_by_depth[depth];
                         
+#if HASHTABLE_KIND == 0                        
                         search_stats_.add_record(height, map_it->second.block_height, depth, cache_hit, true, 'f');
+#endif
                         
                         // Update container stats
                         --container_stats_[Index].deferred_lookups;

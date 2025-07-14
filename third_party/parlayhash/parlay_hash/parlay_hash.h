@@ -17,8 +17,6 @@
 #include "bigatomic.h"
 #include "parallel.h"
 
-// #include <old_parlay_hash/parlay_hash.h>
-
 constexpr bool PrintGrow = false;
 
 namespace parlay {
@@ -68,9 +66,6 @@ struct parlay_hash {
   // to clear their state on destruction
   static constexpr bool default_clear_at_end = true;
   bool clear_memory_and_scheduler_at_end;
-
-
-
 
   // a reference to the scheduler (null if not to be cleared)
   parlay::scheduler_type* sched_ref;
@@ -275,7 +270,7 @@ struct parlay_hash {
 
   // Apply f to all entries in the state.
   template <typename F>
-  void for_each_in_state(const state& s, const F& f) {
+  void static for_each_in_state(const state& s, const F& f) {
     for (long i = 0; i < std::min(s.buffer_cnt(), buffer_size); i++)
       f(s.buffer[i]);
     link* l = s.overflow_list();
@@ -883,7 +878,7 @@ struct parlay_hash {
   }
 
   template <typename F>
-  void for_each_bucket_rec(table_version* t, long i, const F& f) {
+  void static for_each_bucket_rec(table_version* t, long i, const F& f) {
     state s = t->buckets[i].v.load();
     if (!s.is_forwarded())
       for_each_in_state(s, f);
@@ -942,8 +937,9 @@ struct parlay_hash {
     bool single;
     bool end;
     void get_next_bucket() {
+      auto g = [&] (const Entry& e) {entries.push_back(e);};
       while (entries.size() == 0 && ++bucket_num < t->size)
-	bucket_entries(t, bucket_num, entries, [] (const Entry& e) {return e;});
+        for_each_bucket_rec(t, bucket_num, g);
       if (bucket_num == t->size) end = true;
     }
 
@@ -997,6 +993,7 @@ struct parlay_hash {
   static constexpr auto identity = [] (const Entry& entry) {return entry;};
   static constexpr auto true_f = [] (const Entry& entry) {return true;};
 
+  
   template <typename Constr>
   std::pair<Iterator,bool> insert(const K& key, const Constr& constr) {
     return epoch::with_epoch([&] {
@@ -1005,7 +1002,7 @@ struct parlay_hash {
   }
 
   Iterator erase(Iterator pos) {
-    Remove(*pos.first, true_f);
+    Remove((*pos).first, true_f);
     return Iterator(true);
   }
 
