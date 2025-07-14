@@ -1121,6 +1121,7 @@ public:
         });
 #else
         for (auto const& entry : deferred_lookups_) {
+            print_key(entry.first);
             failed_lookups.push_back(entry.first);
         }
 #endif
